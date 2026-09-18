@@ -1,0 +1,1329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Tally Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F1F2ED; --panel:#FBFBF8; --panel-2:#E8EAE2; --line:#D6D9CD; --line-2:#C2C6B6;
+  --ink:#1B1E17; --ink-2:#5B6053; --ink-3:#868B7B;
+  --beer:#B87814; --cooler:#12837F; --wine:#A02E52; --liquor:#4A56B8;
+  --p1:#B4472A; --p2:#1F6E8C; --p3:#6A7A1F; --p4:#8E4585; --p5:#2C7D55; --p6:#A0702A; --p7:#4A54A8; --p8:#9C3B52;
+  --good:#2C7D55; --warn:#9A6212;
+  --shadow:0 1px 0 rgba(27,30,23,.06), 0 6px 18px -12px rgba(27,30,23,.35);
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111310; --panel:#1A1D18; --panel-2:#232720; --line:#2E332A; --line-2:#3E453A;
+    --ink:#ECEEE6; --ink-2:#9BA292; --ink-3:#757C6C;
+    --beer:#E0A23C; --cooler:#45C3BC; --wine:#E8779A; --liquor:#8F98F0;
+    --p1:#E58060; --p2:#5FB6D6; --p3:#B9C755; --p4:#D389CA; --p5:#63C493; --p6:#E0B05F; --p7:#949CEC; --p8:#E4788F;
+    --good:#63C493; --warn:#E0B05F;
+    --shadow:0 1px 0 rgba(0,0,0,.4), 0 8px 20px -14px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111310; --panel:#1A1D18; --panel-2:#232720; --line:#2E332A; --line-2:#3E453A;
+  --ink:#ECEEE6; --ink-2:#9BA292; --ink-3:#757C6C;
+  --beer:#E0A23C; --cooler:#45C3BC; --wine:#E8779A; --liquor:#8F98F0;
+  --p1:#E58060; --p2:#5FB6D6; --p3:#B9C755; --p4:#D389CA; --p5:#63C493; --p6:#E0B05F; --p7:#949CEC; --p8:#E4788F;
+  --good:#63C493; --warn:#E0B05F;
+  --shadow:0 1px 0 rgba(0,0,0,.4), 0 8px 20px -14px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size:15px; line-height:1.45; -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:980px; margin:0 auto; padding-left:16px; padding-right:16px; padding-block:0 56px}
+h1,h2,h3{margin:0; text-wrap:balance}
+button{font:inherit; color:inherit; cursor:pointer}
+input,select{font:inherit; color:inherit}
+.num{font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums}
+.anton{font-family:"Anton", "IBM Plex Sans", sans-serif; font-weight:400; letter-spacing:.01em}
+
+/* header */
+header.top{
+  position:sticky; top:env(safe-area-inset-top, 0px); z-index:30;
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:saturate(1.4) blur(8px);
+  border-bottom:1px solid var(--line);
+}
+.topin{max-width:980px; margin:0 auto; padding:10px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap}
+.brand{display:flex; align-items:baseline; gap:8px; margin-right:auto}
+.brand .mark{font-family:"Anton",sans-serif; font-size:22px; letter-spacing:.02em; text-transform:uppercase}
+.brand .sub{font-size:11px; color:var(--ink-3); text-transform:uppercase; letter-spacing:.09em}
+.ctrl{display:flex; align-items:center; gap:6px; flex-wrap:wrap; min-width:0}
+@media (max-width:640px){ .brand{width:100%} .ctrl{width:100%} select.pill{max-width:44vw; text-overflow:ellipsis} }
+select.pill, .pill{
+  appearance:none; background:var(--panel); border:1px solid var(--line-2); border-radius:999px;
+  padding:6px 12px; font-size:13px; font-weight:500;
+}
+select.pill{padding-right:26px; background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%); background-position:calc(100% - 14px) 52%, calc(100% - 9px) 52%; background-size:5px 5px,5px 5px; background-repeat:no-repeat}
+.seg{display:inline-flex; background:var(--panel-2); border:1px solid var(--line); border-radius:999px; padding:2px}
+.seg button{border:0; background:transparent; border-radius:999px; padding:5px 12px; font-size:13px; font-weight:600; color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
+
+/* banner */
+.banner{
+  display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+  background:var(--panel-2); border:1px dashed var(--line-2); border-radius:var(--r);
+  padding:10px 12px; margin-top:14px; font-size:13px; color:var(--ink-2);
+}
+.banner b{color:var(--ink)}
+
+/* log strip */
+section{margin-top:26px}
+.sechead{display:flex; align-items:baseline; gap:10px; margin-bottom:10px; flex-wrap:wrap}
+.sechead h2{font-size:13px; text-transform:uppercase; letter-spacing:.11em; color:var(--ink-3); font-weight:700}
+.sechead .hint{font-size:12px; color:var(--ink-3); margin-left:auto}
+
+.loggrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+@media (max-width:620px){ .loggrid{grid-template-columns:repeat(2,1fr)} }
+.logcell{position:relative}
+.logbtn{
+  position:relative; width:100%; border:1px solid var(--line-2); background:var(--panel); border-radius:var(--r);
+  padding:14px 12px 34px; text-align:left; display:block; box-shadow:var(--shadow); overflow:hidden;
+  transition:transform .08s ease, border-color .12s ease;
+}
+.logbtn:active{transform:translateY(1px)}
+.logbtn:hover{border-color:var(--cc)}
+.logbtn .rail{position:absolute; inset:0 auto 0 0; width:4px; background:var(--cc)}
+.logbtn .cname{font-family:"Anton",sans-serif; font-size:20px; text-transform:uppercase; letter-spacing:.02em; color:var(--cc); display:block; line-height:1.1}
+.logbtn .csize{display:block; font-size:11.5px; color:var(--ink-3); margin-top:3px}
+.logbtn .ccount{position:absolute; top:10px; right:11px; font-size:12px; color:var(--ink-2)}
+.logbtn .plus{display:block; margin-top:8px; font-size:12px; font-weight:600; color:var(--ink-2)}
+.sizebtn{
+  position:absolute; right:8px; bottom:8px; z-index:2; border:1px solid var(--line); background:var(--panel-2);
+  border-radius:7px; font-size:11px; padding:3px 8px; color:var(--ink-2); font-weight:600;
+}
+.sizebtn:hover{color:var(--ink)}
+
+.sizepanel{margin-top:8px; background:var(--panel); border:1px solid var(--line-2); border-radius:var(--r); padding:12px}
+.sizepanel .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+.preset{border:1px solid var(--line-2); background:var(--panel-2); border-radius:999px; padding:6px 11px; font-size:12.5px; font-weight:500}
+.preset:hover{border-color:var(--ink-3)}
+.mini{font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-3); font-weight:700}
+input[type=number],input[type=text],input[type=time],input[type=date]{
+  background:var(--bg); border:1px solid var(--line-2); border-radius:7px; padding:6px 8px; width:100%;
+}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--ink); outline-offset:2px}
+.btn{border:1px solid var(--line-2); background:var(--panel-2); border-radius:8px; padding:7px 12px; font-size:13px; font-weight:600}
+.btn:hover{border-color:var(--ink-3)}
+.btn.solid{background:var(--ink); color:var(--bg); border-color:var(--ink)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--wine); border-color:color-mix(in srgb, var(--wine) 45%, var(--line-2))}
+
+/* stats */
+.stats{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+@media (max-width:620px){ .stats{grid-template-columns:repeat(2,1fr)} }
+.stat{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:11px 13px}
+.stat .k{font-size:10.5px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-3); font-weight:700}
+.stat .v{font-family:"Anton",sans-serif; font-size:30px; line-height:1.05; margin-top:3px}
+.stat .u{font-size:11.5px; color:var(--ink-3)}
+
+/* board */
+.cols{display:grid; grid-template-columns:1fr 1fr; gap:16px}
+@media (max-width:820px){ .cols{grid-template-columns:1fr} }
+.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); overflow:hidden}
+.card > .hd{padding:10px 13px; border-bottom:1px solid var(--line); display:flex; align-items:baseline; gap:8px}
+.card > .hd h3{font-size:12px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-3); font-weight:700}
+.card > .hd .r{margin-left:auto; font-size:11px; color:var(--ink-3)}
+
+.prow{display:grid; grid-template-columns:22px 1fr auto; gap:10px; align-items:center; padding:9px 13px; border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:0}
+.prow .rank{font-family:"Anton",sans-serif; font-size:17px; color:var(--ink-3); text-align:center}
+.prow.me{background:color-mix(in srgb, var(--ink) 4%, var(--panel))}
+.pname{display:flex; align-items:center; gap:7px; font-weight:600; font-size:14.5px}
+.dot{width:9px; height:9px; border-radius:3px; flex:none}
+.teamchip{font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--ink-3); border:1px solid var(--line-2); border-radius:999px; padding:1px 7px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:11ch}
+.pname{min-width:0}
+.split{display:flex; height:7px; border-radius:4px; overflow:hidden; background:var(--panel-2); margin-top:6px}
+.split i{display:block; height:100%}
+.pnums{text-align:right; line-height:1.15}
+.pnums .big{font-family:"Anton",sans-serif; font-size:21px}
+.pnums .small{font-size:11px; color:var(--ink-3)}
+.legend{display:flex; gap:12px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-2); padding:9px 13px}
+.legend span{display:inline-flex; align-items:center; gap:5px}
+.empty{padding:22px 14px; color:var(--ink-3); font-size:13.5px; text-align:center}
+
+/* teams */
+.trow{padding:11px 13px; border-bottom:1px solid var(--line)}
+.trow:last-child{border-bottom:0}
+.thead{display:flex; align-items:center; gap:8px}
+.thead .tn{font-family:"Anton",sans-serif; font-size:19px; text-transform:uppercase}
+.thead .tv{margin-left:auto; text-align:right}
+.thead .tv .big{font-family:"Anton",sans-serif; font-size:21px}
+.thead .tv .small{font-size:11px; color:var(--ink-3)}
+.contrib{display:flex; gap:3px; margin-top:8px; flex-wrap:wrap}
+.contrib b{font-weight:500; font-size:11px; color:var(--ink-2); background:var(--panel-2); border:1px solid var(--line); border-radius:999px; padding:1px 8px}
+
+/* chart */
+.chartbox{background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:12px 12px 6px}
+svg.chart{display:block; width:100%; height:auto; max-width:100%}
+.chart text{font-family:"IBM Plex Mono", monospace; font-size:10px; fill:var(--ink-3)}
+@media (max-width:560px){ .chart text{font-size:12px} }
+.chart .gl{stroke:var(--line); stroke-width:1}
+.chart .axis{stroke:var(--line-2); stroke-width:1}
+
+/* log list */
+.entry{display:grid; grid-template-columns:auto 1fr auto auto; gap:10px; align-items:center; padding:8px 13px; border-bottom:1px solid var(--line); font-size:13.5px}
+.entry:last-child{border-bottom:0}
+.entry .tag{font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; border-radius:5px; padding:2px 6px; color:#fff}
+.entry .when{color:var(--ink-3); font-size:12px; white-space:nowrap}
+.entry > span:nth-child(2){min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+@media (max-width:560px){ .entry .size{display:none} .entry{gap:7px; padding:8px 10px} }
+.entry .del{border:0; background:transparent; color:var(--ink-3); font-size:16px; line-height:1; padding:2px 5px; border-radius:6px}
+.entry .del:hover{color:var(--wine); background:var(--panel-2)}
+
+/* setup */
+details.setup{margin-top:26px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r)}
+details.setup > summary{padding:12px 14px; cursor:pointer; font-size:12px; text-transform:uppercase; letter-spacing:.1em; font-weight:700; color:var(--ink-3)}
+.setupbody{padding:0 14px 16px; display:grid; gap:20px}
+.fieldrow{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; align-items:end}
+.f label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-3); font-weight:700; margin-bottom:4px}
+.manrow{display:grid; grid-template-columns:1fr 130px auto; gap:8px; align-items:center; margin-bottom:6px}
+@media (max-width:520px){ .manrow{grid-template-columns:1fr 1fr; } .manrow .del2{grid-column:2; justify-self:end} }
+table.sizes{width:100%; border-collapse:collapse; font-size:13px}
+table.sizes th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-3); padding:4px 6px 6px}
+table.sizes td{padding:3px 6px}
+.note{font-size:12px; color:var(--ink-3); line-height:1.5}
+
+/* backfill */
+dialog{border:1px solid var(--line-2); border-radius:12px; background:var(--panel); color:var(--ink); padding:0; max-width:min(560px,92vw); width:100%; box-shadow:0 24px 60px -20px rgba(0,0,0,.5)}
+dialog::backdrop{background:rgba(10,12,9,.45)}
+dialog .dhd{padding:14px 16px 0; display:flex; align-items:baseline; gap:8px}
+dialog .dhd h3{font-family:"Anton",sans-serif; font-size:20px; text-transform:uppercase}
+dialog .dbody{padding:12px 16px 16px; display:grid; gap:14px}
+dialog .dft{display:flex; gap:8px; justify-content:flex-end; padding:0 16px 16px}
+.countgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px}
+@media (max-width:520px){ .countgrid{grid-template-columns:repeat(2,1fr)} }
+.cbox{border:1px solid var(--line-2); border-radius:8px; padding:8px; text-align:center}
+.cbox .cl{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:5px}
+.cbox input{text-align:center; font-family:"IBM Plex Mono",monospace}
+
+#toast{position:fixed; left:50%; transform:translateX(-50%); bottom:calc(18px + env(safe-area-inset-bottom,0px)); z-index:60;
+  background:var(--ink); color:var(--bg); padding:9px 15px; border-radius:999px; font-size:13px; font-weight:500; box-shadow:var(--shadow)}
+.foot{margin-top:28px; font-size:11.5px; color:var(--ink-3); line-height:1.6}
+@media (prefers-reduced-motion:reduce){ *{transition:none !important; animation:none !important} }
+</style>
+<style>:root{padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px)}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+
+
+<header class="top">
+  <div class="topin">
+    <div class="brand">
+      <span class="mark">Tally Board</span>
+      <span class="sub" id="brandsub">loading</span>
+    </div>
+    <div class="ctrl">
+      <select class="pill" id="sessionSel" aria-label="Session"></select>
+      <div class="seg" role="group" aria-label="Scope">
+        <button id="scopeSession" aria-pressed="true">Session</button>
+        <button id="scopeAll" aria-pressed="false">All time</button>
+      </div>
+      <select class="pill" id="meSel" aria-label="Who are you"></select>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="banner" id="demoBanner" hidden>
+    <span><b>Sample data loaded.</b> Names, teams and entries below are made up so the board isn't empty.</span>
+    <button class="btn danger" id="clearDemo" style="margin-left:auto">Clear it and start fresh</button>
+  </div>
+
+  <section>
+    <div class="sechead">
+      <h2>Log a drink</h2>
+      <span class="hint" id="logFor"></span>
+    </div>
+    <div class="loggrid" id="logGrid"></div>
+    <div class="sizepanel" id="sizePanel" hidden></div>
+    <div class="row" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap">
+      <button class="btn" id="undoBtn">Undo last</button>
+      <button class="btn" id="backfillBtn">Add a past night</button>
+      <button class="btn ghost" id="newSessionBtn">New session</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead"><h2 id="statsTitle">Session totals</h2></div>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section class="cols">
+    <div class="card">
+      <div class="hd"><h3>Individuals</h3><span class="r" id="boardScope"></span></div>
+      <div id="board"></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="card">
+      <div class="hd"><h3>Teams</h3><span class="r" id="teamScope"></span></div>
+      <div id="teams"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <h2 id="chartTitle">Pace</h2>
+      <div class="seg" role="group" aria-label="Chart grouping" style="margin-left:auto">
+        <button id="chartPeople" aria-pressed="true">People</button>
+        <button id="chartTeams" aria-pressed="false">Teams</button>
+      </div>
+    </div>
+    <div class="chartbox"><div id="chart"></div></div>
+  </section>
+
+  <section>
+    <div class="sechead">
+      <h2>Log</h2>
+      <span class="hint"><select class="pill" id="logFilter" aria-label="Filter log by person"></select></span>
+    </div>
+    <div class="card"><div id="logList"></div></div>
+  </section>
+
+  <details class="setup">
+    <summary>Setup — people, teams, sizes, sessions</summary>
+    <div class="setupbody">
+      <div>
+        <div class="mini" style="margin-bottom:8px">People &amp; teams</div>
+        <div id="peopleMan"></div>
+        <div class="fieldrow" style="margin-top:10px">
+          <div class="f"><label for="newName">Add a person</label><input type="text" id="newName" placeholder="Name" maxlength="24"></div>
+          <div class="f"><label for="newTeam">Team</label><select class="pill" id="newTeam" style="width:100%"></select></div>
+          <div><button class="btn solid" id="addPerson">Add</button></div>
+        </div>
+        <div class="fieldrow" style="margin-top:10px">
+          <div class="f"><label for="newTeamName">Add a team</label><input type="text" id="newTeamName" placeholder="Team name" maxlength="24"></div>
+          <div><button class="btn" id="addTeam">Add team</button></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="mini" style="margin-bottom:8px">Default sizes</div>
+        <table class="sizes"><thead><tr><th>Category</th><th>mL</th><th>% ABV</th><th>Std drinks</th></tr></thead><tbody id="sizeTable"></tbody></table>
+        <p class="note">One Canadian standard drink = 13.45 g (17.05 mL) of pure alcohol. Std drinks = mL × %ABV ÷ 100 × 0.789 g/mL ÷ 13.45 g.</p>
+      </div>
+
+      <div>
+        <div class="mini" style="margin-bottom:8px">Sessions</div>
+        <div id="sessionMan"></div>
+      </div>
+    </div>
+  </details>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<dialog id="backfillDlg">
+  <div class="dhd"><h3>Add a past night</h3></div>
+  <form method="dialog" class="dbody" id="backfillForm">
+    <div class="fieldrow">
+      <div class="f"><label for="bfPerson">Who</label><select class="pill" id="bfPerson" style="width:100%"></select></div>
+      <div class="f"><label for="bfSession">Session</label><select class="pill" id="bfSession" style="width:100%"></select></div>
+    </div>
+    <div class="fieldrow">
+      <div class="f"><label for="bfDate">Date</label><input type="date" id="bfDate"></div>
+      <div class="f"><label for="bfStart">Started</label><input type="time" id="bfStart" value="20:00"></div>
+      <div class="f"><label for="bfEnd">Finished</label><input type="time" id="bfEnd" value="01:30"></div>
+    </div>
+    <div>
+      <div class="mini" style="margin-bottom:6px">How many of each</div>
+      <div class="countgrid" id="bfCounts"></div>
+      <p class="note" id="bfPreview" style="margin:8px 0 0"></p>
+    </div>
+  </form>
+  <div class="dft">
+    <button class="btn ghost" id="bfCancel">Cancel</button>
+    <button class="btn solid" id="bfSave">Add entries</button>
+  </div>
+</dialog>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- constants ---------- */
+var ETHANOL_G_PER_ML = 0.789;          // density of ethanol
+var STD_DRINK_G = 13.45;               // Canadian standard drink, 13.45 g / 17.05 mL pure alcohol
+var CATS = [
+  {id:"beer",   name:"Beer",   verb:"can",    color:"var(--beer)"},
+  {id:"cooler", name:"Cooler", verb:"can",    color:"var(--cooler)"},
+  {id:"wine",   name:"Wine",   verb:"glass",  color:"var(--wine)"},
+  {id:"liquor", name:"Liquor", verb:"shot",   color:"var(--liquor)"}
+];
+var CATMAP = {}; CATS.forEach(function(c){ CATMAP[c.id]=c; });
+var PCOLORS = ["var(--p1)","var(--p2)","var(--p3)","var(--p4)","var(--p5)","var(--p6)","var(--p7)","var(--p8)"];
+var PRESETS = {
+  beer:   [{l:"Bottle 341",ml:341,abv:5},{l:"Can 355",ml:355,abv:5},{l:"Tallboy 473",ml:473,abv:5},{l:"Pint 568",ml:568,abv:5},{l:"Light 355 · 4%",ml:355,abv:4}],
+  cooler: [{l:"Can 355 · 5%",ml:355,abv:5},{l:"Tallboy 473 · 5%",ml:473,abv:5},{l:"Tallboy 473 · 7%",ml:473,abv:7},{l:"Bottle 330 · 7%",ml:330,abv:7}],
+  wine:   [{l:"Standard 142",ml:142,abv:12},{l:"Glass 175 · 13%",ml:175,abv:13},{l:"Big pour 250",ml:250,abv:12},{l:"Bottle 750",ml:750,abv:12}],
+  liquor: [{l:"Shot 43",ml:43,abv:40},{l:"Ounce 30",ml:30,abv:40},{l:"Double 86",ml:86,abv:40},{l:"Mixed 43 · 40%",ml:43,abv:40}]
+};
+var DEFAULT_SIZES = {
+  beer:{ml:355,abv:5}, cooler:{ml:355,abv:5}, wine:{ml:142,abv:12}, liquor:{ml:43,abv:40}
+};
+
+/* ---------- state ---------- */
+var state = {
+  roster:{people:[], teams:[]},
+  config:{sizes:clone(DEFAULT_SIZES), activeSessionId:null, demo:false},
+  sessions:[],
+  logs:{},                 // personId -> {entries:[...]}
+  scope:"session",
+  chartBy:"people",
+  me:null,
+  logFilter:"all",
+  db:null,
+  ready:false
+};
+var pendingSize = null;    // {cat, ml, abv} staged from the size panel
+var openSizeCat = null;
+
+function clone(o){ return JSON.parse(JSON.stringify(o)); }
+function uid(p){ return p + "_" + Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+function std(ml, abv){ return (ml * (abv/100) * ETHANOL_G_PER_ML) / STD_DRINK_G; }
+function fmt1(n){ return (Math.round(n*10)/10).toFixed(1); }
+
+/* ---------- local fallback storage ---------- */
+var LKEY = "tallyboard.v1";
+function saveLocal(){
+  try{ localStorage.setItem(LKEY, JSON.stringify({roster:state.roster, config:state.config, sessions:state.sessions, logs:state.logs})); }catch(e){}
+}
+function loadLocal(){
+  try{
+    var raw = localStorage.getItem(LKEY);
+    if(!raw) return false;
+    var d = JSON.parse(raw);
+    if(!d || !d.roster) return false;
+    state.roster = d.roster; state.config = d.config; state.sessions = d.sessions||[]; state.logs = d.logs||{};
+    return true;
+  }catch(e){ return false; }
+}
+function loadMe(){ try{ return localStorage.getItem("tallyboard.me"); }catch(e){ return null; } }
+function saveMe(v){ try{ v ? localStorage.setItem("tallyboard.me", v) : localStorage.removeItem("tallyboard.me"); }catch(e){} }
+
+/* ---------- demo seed (used only when there is no data at all) ---------- */
+function demoState(){
+  var t1={id:"t_cottage",name:"Cottage Crew"}, t2={id:"t_porch",name:"Porch Gang"};
+  var people=[
+    {id:"p_luc",name:"Luc",teamId:t1.id},
+    {id:"p_jess",name:"Jess",teamId:t1.id},
+    {id:"p_marc",name:"Marc",teamId:t2.id},
+    {id:"p_priya",name:"Priya",teamId:t2.id}
+  ];
+  var sid="s_demo";
+  var base=new Date(); base.setHours(20,15,0,0); base.setDate(base.getDate()-1);
+  var t0=base.getTime();
+  var plan={p_luc:[["beer",0],["beer",42],["beer",95],["liquor",130],["beer",171]],
+            p_jess:[["cooler",8],["cooler",55],["wine",110],["cooler",160]],
+            p_marc:[["beer",15],["liquor",60],["beer",88],["liquor",120],["beer",152],["liquor",186]],
+            p_priya:[["wine",22],["wine",75],["wine",128]]};
+  var logs={};
+  Object.keys(plan).forEach(function(pid){
+    logs[pid]={entries:plan[pid].map(function(x){
+      var s=DEFAULT_SIZES[x[0]];
+      return {id:uid("e"), sid:sid, cat:x[0], ts:t0 + x[1]*60000, ml:s.ml, abv:s.abv};
+    })};
+  });
+  return {
+    roster:{people:people, teams:[t1,t2]},
+    config:{sizes:clone(DEFAULT_SIZES), activeSessionId:sid, demo:true},
+    sessions:[{id:sid, name:"Sample night", startedAt:t0, createdAt:t0}],
+    logs:logs
+  };
+}
+
+/* ---------- persistence ---------- */
+function toast(msg){
+  var el=document.getElementById("toast");
+  if(!el){ el=document.createElement("div"); el.id="toast"; document.body.appendChild(el); }
+  el.textContent=msg; el.hidden=false;
+  clearTimeout(toast._t); toast._t=setTimeout(function(){ el.hidden=true; }, 2600);
+}
+function writeDoc(path, data){
+  if(state.db){
+    state.db.doc(path).set(data).catch(function(e){
+      if(e && e.code==="invalid_argument") toast("Read-only on this board — your change wasn't saved.");
+      else if(e && e.code==="quota_exceeded") toast("Storage is full. Delete an old session.");
+      else toast("Couldn't save that. Try again.");
+    });
+  } else {
+    saveLocal();
+  }
+  void 0;
+}
+function saveRoster(){ state.config.demo=false; render(); writeDoc("meta/roster", clone(state.roster)); writeDoc("meta/config", clone(state.config)); }
+function saveConfig(){ render(); writeDoc("meta/config", clone(state.config)); }
+function saveSession(s){ render(); writeDoc("sessions/"+s.id, clone(s)); }
+function removeSession(id){
+  state.sessions = state.sessions.filter(function(s){ return s.id!==id; });
+  Object.keys(state.logs).forEach(function(pid){
+    state.logs[pid].entries = state.logs[pid].entries.filter(function(e){ return e.sid!==id; });
+  });
+  if(state.config.activeSessionId===id) state.config.activeSessionId = state.sessions.length? state.sessions[0].id : null;
+  render();
+  if(state.db){
+    state.db.doc("sessions/"+id).delete().catch(function(){ toast("Couldn't delete the session."); });
+    Object.keys(state.logs).forEach(function(pid){ writeDoc("log/"+pid, {entries:state.logs[pid].entries}); });
+    writeDoc("meta/config", clone(state.config));
+  } else saveLocal();
+}
+function saveLog(pid){
+  var l = state.logs[pid] || {entries:[]};
+  var wasDemo = state.config.demo;
+  state.config.demo=false;
+  render();
+  writeDoc("log/"+pid, {entries:l.entries});
+  if(wasDemo) writeDoc("meta/config", clone(state.config));
+  if(l.entries.length>1500) toast("That's a lot of entries — consider archiving old sessions.");
+}
+
+/* ---------- derived ---------- */
+function activeSession(){
+  var id=state.config.activeSessionId;
+  return state.sessions.filter(function(s){ return s.id===id; })[0] || state.sessions[0] || null;
+}
+function personById(id){ return state.roster.people.filter(function(p){ return p.id===id; })[0] || null; }
+function teamById(id){ return state.roster.teams.filter(function(t){ return t.id===id; })[0] || null; }
+function personColor(pid){
+  var i = state.roster.people.findIndex(function(p){ return p.id===pid; });
+  return PCOLORS[(i<0?0:i) % PCOLORS.length];
+}
+function teamColor(tid){
+  var i = state.roster.teams.findIndex(function(t){ return t.id===tid; });
+  return PCOLORS[(i<0?0:i) % PCOLORS.length];
+}
+function entriesFor(pid, scopeSid){
+  var l = state.logs[pid]; if(!l) return [];
+  if(scopeSid==null) return l.entries.slice();
+  return l.entries.filter(function(e){ return e.sid===scopeSid; });
+}
+function scopeSid(){ return state.scope==="session" ? (activeSession()? activeSession().id : "__none__") : null; }
+function totalsFor(pid, sid){
+  var t={count:0, sd:0, byCat:{beer:0,cooler:0,wine:0,liquor:0}, sdByCat:{beer:0,cooler:0,wine:0,liquor:0}};
+  entriesFor(pid, sid).forEach(function(e){
+    t.count++; var s=std(e.ml,e.abv); t.sd+=s;
+    if(t.byCat[e.cat]==null){ t.byCat[e.cat]=0; t.sdByCat[e.cat]=0; }
+    t.byCat[e.cat]++; t.sdByCat[e.cat]+=s;
+  });
+  return t;
+}
+
+/* ---------- rendering ---------- */
+function render(){
+  renderHeader();
+  renderLogStrip();
+  renderStats();
+  renderBoard();
+  renderTeams();
+  renderChart();
+  renderLogList();
+  renderSetup();
+  renderFoot();
+  document.getElementById("demoBanner").hidden = !state.config.demo;
+}
+
+function renderHeader(){
+  var s=activeSession();
+  document.getElementById("brandsub").textContent = s ? (s.name + " · " + new Date(s.startedAt).toLocaleDateString(undefined,{month:"short",day:"numeric"})) : "no session yet";
+  var sel=document.getElementById("sessionSel");
+  if(document.activeElement!==sel){
+    sel.innerHTML = state.sessions.map(function(x){
+      return '<option value="'+esc(x.id)+'"'+(s&&x.id===s.id?" selected":"")+'>'+esc(x.name)+'</option>';
+    }).join("") || '<option value="">No sessions</option>';
+  }
+  var me=document.getElementById("meSel");
+  if(document.activeElement!==me){
+    me.innerHTML = '<option value="">I\'m… (pick)</option>' + state.roster.people.map(function(p){
+      return '<option value="'+esc(p.id)+'"'+(p.id===state.me?" selected":"")+'>'+esc(p.name)+'</option>';
+    }).join("");
+  }
+  document.getElementById("scopeSession").setAttribute("aria-pressed", state.scope==="session");
+  document.getElementById("scopeAll").setAttribute("aria-pressed", state.scope==="all");
+  document.getElementById("chartPeople").setAttribute("aria-pressed", state.chartBy==="people");
+  document.getElementById("chartTeams").setAttribute("aria-pressed", state.chartBy==="teams");
+}
+
+function renderLogStrip(){
+  var sid = activeSession()? activeSession().id : null;
+  var who = state.me ? personById(state.me) : null;
+  document.getElementById("logFor").textContent = who ? ("logging for " + who.name) : "pick who you are, top right";
+  var g=document.getElementById("logGrid");
+  g.innerHTML = CATS.map(function(c){
+    var sz = state.config.sizes[c.id] || DEFAULT_SIZES[c.id];
+    var n;
+    if(who){ n = totalsFor(who.id, sid).byCat[c.id]||0; }
+    else { n = 0; state.roster.people.forEach(function(p){ n += totalsFor(p.id, sid).byCat[c.id]||0; }); }
+    var nTitle = who ? (who.name+"'s "+c.name.toLowerCase()+" this session") : ("everyone's "+c.name.toLowerCase()+" this session");
+    return '<div class="logcell">'+
+      '<button class="logbtn" data-act="log" data-cat="'+c.id+'" style="--cc:'+c.color+'" aria-label="Log one '+c.name+'">'+
+        '<span class="rail"></span>'+
+        '<span class="ccount num" title="'+esc(nTitle)+'">'+n+'</span>'+
+        '<span class="cname">'+c.name+'</span>'+
+        '<span class="csize num">'+sz.ml+' mL · '+sz.abv+'% · '+fmt1(std(sz.ml,sz.abv))+' std</span>'+
+        '<span class="plus">+ 1 '+c.verb+'</span>'+
+      '</button>'+
+      '<button class="sizebtn" data-act="size" data-cat="'+c.id+'" aria-expanded="'+(openSizeCat===c.id)+'">size</button>'+
+      '</div>';
+  }).join("");
+  renderSizePanel();
+}
+
+function renderSizePanel(){
+  var p=document.getElementById("sizePanel");
+  if(!openSizeCat){ p.hidden=true; p.innerHTML=""; return; }
+  var c=CATMAP[openSizeCat];
+  var cur = pendingSize && pendingSize.cat===openSizeCat ? pendingSize : Object.assign({cat:openSizeCat}, state.config.sizes[openSizeCat]);
+  p.hidden=false;
+  p.innerHTML =
+    '<div class="row" style="margin-bottom:10px"><span class="mini" style="color:'+c.color+'">'+c.name+' size</span>'+
+      '<span class="mini" style="margin-left:auto">'+fmt1(std(cur.ml,cur.abv))+' std drinks</span></div>'+
+    '<div class="row">'+ PRESETS[openSizeCat].map(function(pr){
+        var on = pr.ml===cur.ml && pr.abv===cur.abv;
+        return '<button class="preset" data-act="preset" data-ml="'+pr.ml+'" data-abv="'+pr.abv+'"'+(on?' style="border-color:'+c.color+'; color:'+c.color+'"':'')+'>'+esc(pr.l)+'</button>';
+      }).join("") + '</div>'+
+    '<div class="fieldrow" style="margin-top:10px">'+
+      '<div class="f"><label for="szMl">mL</label><input type="number" id="szMl" min="1" max="2000" step="1" value="'+cur.ml+'"></div>'+
+      '<div class="f"><label for="szAbv">% ABV</label><input type="number" id="szAbv" min="0" max="80" step="0.1" value="'+cur.abv+'"></div>'+
+      '<div style="display:flex; gap:8px; flex-wrap:wrap">'+
+        '<button class="btn solid" data-act="logcustom">Log one</button>'+
+        '<button class="btn" data-act="setdefault">Make default</button>'+
+        '<button class="btn ghost" data-act="closesize">Close</button>'+
+      '</div>'+
+    '</div>';
+}
+
+function renderStats(){
+  var sid=scopeSid();
+  var people=state.roster.people;
+  var tot=0, sd=0, byCat={beer:0,cooler:0,wine:0,liquor:0};
+  people.forEach(function(p){
+    var t=totalsFor(p.id, sid);
+    tot+=t.count; sd+=t.sd;
+    CATS.forEach(function(c){ byCat[c.id]+=t.byCat[c.id]||0; });
+  });
+  var drinkers = people.filter(function(p){ return totalsFor(p.id,sid).count>0; }).length;
+  var top = people.map(function(p){ return {p:p, t:totalsFor(p.id,sid)}; }).sort(function(a,b){ return b.t.sd-a.t.sd; })[0];
+  document.getElementById("statsTitle").textContent = state.scope==="session" ? "Session totals" : "Running totals — all sessions";
+  document.getElementById("stats").innerHTML =
+    stat("Drinks", tot, "logged") +
+    stat("Std drinks", fmt1(sd), "13.45 g each") +
+    stat("Drinking", drinkers, drinkers===1?"person":"people") +
+    stat("Leader", top && top.t.sd>0 ? top.p.name : "—", top && top.t.sd>0 ? fmt1(top.t.sd)+" std" : "nothing logged");
+  function stat(k,v,u){ return '<div class="stat"><div class="k">'+k+'</div><div class="v'+(typeof v==="number"||/^[\d.]+$/.test(String(v))?" num":"")+'">'+esc(v)+'</div><div class="u">'+esc(u)+'</div></div>'; }
+}
+
+function splitBar(t){
+  var totalSd = t.sd || 0;
+  if(totalSd<=0) return '<div class="split"></div>';
+  return '<div class="split">'+CATS.map(function(c){
+    var v=t.sdByCat[c.id]||0; if(v<=0) return "";
+    return '<i style="width:'+(v/totalSd*100)+'%; background:'+c.color+'" title="'+c.name+'"></i>';
+  }).join("")+'</div>';
+}
+
+function renderBoard(){
+  var sid=scopeSid();
+  document.getElementById("boardScope").textContent = state.scope==="session" ? "this session" : "all time";
+  var rows = state.roster.people.map(function(p){
+    return {p:p, t:totalsFor(p.id, sid), all:totalsFor(p.id, null)};
+  }).sort(function(a,b){ return b.t.sd - a.t.sd || a.p.name.localeCompare(b.p.name); });
+  var el=document.getElementById("board");
+  if(!rows.length){ el.innerHTML='<div class="empty">No one on the board yet. Add people in Setup below.</div>'; }
+  else{
+    el.innerHTML = rows.map(function(r,i){
+      var team = teamById(r.p.teamId);
+      return '<div class="prow'+(r.p.id===state.me?" me":"")+'">'+
+        '<div class="rank num">'+(r.t.sd>0? (i+1) : "–")+'</div>'+
+        '<div>'+
+          '<div class="pname"><span class="dot" style="background:'+personColor(r.p.id)+'"></span>'+esc(r.p.name)+
+            (team? '<span class="teamchip">'+esc(team.name)+'</span>':'')+'</div>'+
+          splitBar(r.t)+
+        '</div>'+
+        '<div class="pnums"><div class="big num">'+fmt1(r.t.sd)+'</div>'+
+          '<div class="small num">'+r.t.count+' drinks'+(state.scope==="session"? ' · '+fmt1(r.all.sd)+' all time':'')+'</div></div>'+
+      '</div>';
+    }).join("");
+  }
+  document.getElementById("legend").innerHTML = CATS.map(function(c){
+    return '<span><i class="dot" style="background:'+c.color+'"></i>'+c.name+'</span>';
+  }).join("");
+}
+
+function renderTeams(){
+  var sid=scopeSid();
+  document.getElementById("teamScope").textContent = state.scope==="session" ? "this session" : "all time";
+  var el=document.getElementById("teams");
+  if(!state.roster.teams.length){ el.innerHTML='<div class="empty">No teams yet. Add one in Setup below.</div>'; return; }
+  var rows = state.roster.teams.map(function(tm){
+    var members = state.roster.people.filter(function(p){ return p.teamId===tm.id; });
+    var agg={count:0,sd:0,byCat:{beer:0,cooler:0,wine:0,liquor:0},sdByCat:{beer:0,cooler:0,wine:0,liquor:0}};
+    var contrib=[];
+    members.forEach(function(p){
+      var t=totalsFor(p.id,sid);
+      agg.count+=t.count; agg.sd+=t.sd;
+      CATS.forEach(function(c){ agg.byCat[c.id]+=t.byCat[c.id]||0; agg.sdByCat[c.id]+=t.sdByCat[c.id]||0; });
+      contrib.push({name:p.name, sd:t.sd});
+    });
+    var perHead = members.length ? agg.sd/members.length : 0;
+    return {tm:tm, agg:agg, contrib:contrib.sort(function(a,b){return b.sd-a.sd;}), members:members.length, perHead:perHead};
+  }).sort(function(a,b){ return b.agg.sd-a.agg.sd; });
+  el.innerHTML = rows.map(function(r){
+    return '<div class="trow">'+
+      '<div class="thead"><span class="dot" style="background:'+teamColor(r.tm.id)+'"></span>'+
+        '<span class="tn">'+esc(r.tm.name)+'</span>'+
+        '<span class="tv"><span class="big num">'+fmt1(r.agg.sd)+'</span>'+
+          '<span class="small num"> std · '+r.agg.count+' drinks</span><br>'+
+          '<span class="small num">'+fmt1(r.perHead)+' std per head ('+r.members+')</span></span></div>'+
+      splitBar(r.agg)+
+      '<div class="contrib">'+ (r.contrib.length? r.contrib.map(function(c){
+          return '<b>'+esc(c.name)+' '+fmt1(c.sd)+'</b>';
+        }).join("") : '<b>no members</b>') +'</div>'+
+    '</div>';
+  }).join("");
+}
+
+/* ---------- chart ---------- */
+function niceMax(v){
+  if(v<=0) return 1;
+  var mags=[1,2,4,5,8,10], p=Math.pow(10, Math.floor(Math.log10(v)));
+  for(var i=0;i<mags.length;i++){ if(v <= mags[i]*p) return mags[i]*p; }
+  return 10*p;
+}
+function tickCount(maxV){ return (maxV%4===0) ? 4 : (maxV%5===0 ? 5 : 4); }
+function tickLabel(v, maxV){ return maxV>=4 ? String(Math.round(v)) : fmt1(v); }
+function renderChart(){
+  var host=document.getElementById("chart");
+  document.getElementById("chartTitle").textContent = state.scope==="session" ? "Pace through the session" : "Standard drinks by session";
+  if(state.scope==="session") host.innerHTML = paceSvg();
+  else host.innerHTML = sessionBarsSvg();
+}
+function paceSvg(){
+  var s=activeSession();
+  if(!s) return '<div class="empty">No session selected.</div>';
+  var sid=s.id;
+  var groups=[];
+  if(state.chartBy==="people"){
+    state.roster.people.forEach(function(p){
+      var es=entriesFor(p.id,sid); if(es.length) groups.push({name:p.name, color:personColor(p.id), entries:es});
+    });
+  } else {
+    state.roster.teams.forEach(function(tm){
+      var es=[];
+      state.roster.people.filter(function(p){return p.teamId===tm.id;}).forEach(function(p){ es=es.concat(entriesFor(p.id,sid)); });
+      if(es.length) groups.push({name:tm.name, color:teamColor(tm.id), entries:es});
+    });
+  }
+  if(!groups.length) return '<div class="empty">Nothing logged in this session yet — the pace line shows up as soon as someone taps a drink.</div>';
+  var all=[]; groups.forEach(function(g){ all=all.concat(g.entries); });
+  var t0=Math.min.apply(null, all.map(function(e){return e.ts;}));
+  var t1=Math.max.apply(null, all.map(function(e){return e.ts;}));
+  if(t1-t0 < 30*60000) t1 = t0 + 30*60000;
+  var narrow=(window.innerWidth||1000)<560;
+  var W=narrow?420:720, H=narrow?236:252, L=narrow?36:42, R=14, T=26, B=30;
+  var series=groups.map(function(g){
+    var es=g.entries.slice().sort(function(a,b){return a.ts-b.ts;});
+    var cum=0, pts=[{ts:t0, v:0}];
+    es.forEach(function(e){ cum+=std(e.ml,e.abv); pts.push({ts:e.ts, v:cum}); });
+    return {name:g.name, color:g.color, pts:pts, end:cum};
+  });
+  var maxV=niceMax(Math.max.apply(null, series.map(function(s2){return s2.end;})));
+  function X(ts){ return L + (ts-t0)/(t1-t0) * (W-L-R); }
+  function Y(v){ return H-B - (v/maxV)*(H-B-T); }
+  var out='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Cumulative standard drinks over time">';
+  var yticks=tickCount(maxV);
+  for(var i=0;i<=yticks;i++){
+    var v=maxV*i/yticks, y=Y(v);
+    out+='<line class="gl" x1="'+L+'" y1="'+y+'" x2="'+(W-R)+'" y2="'+y+'"/>';
+    out+='<text x="'+(L-7)+'" y="'+(y+3.5)+'" text-anchor="end">'+tickLabel(v,maxV)+'</text>';
+  }
+  out+='<text x="2" y="'+(T-13)+'" text-anchor="start" style="font-size:9px">std drinks</text>';
+  var xticks=narrow?2:4;
+  for(var j=0;j<=xticks;j++){
+    var ts=t0+(t1-t0)*j/xticks, x=X(ts);
+    out+='<line class="axis" x1="'+x+'" y1="'+(H-B)+'" x2="'+x+'" y2="'+(H-B+4)+'"/>';
+    out+='<text x="'+x+'" y="'+(H-B+16)+'" text-anchor="'+(j===0?"start":(j===xticks?"end":"middle"))+'">'+
+      esc(new Date(ts).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}))+'</text>';
+  }
+  out+='<line class="axis" x1="'+L+'" y1="'+(H-B)+'" x2="'+(W-R)+'" y2="'+(H-B)+'"/>';
+  series.forEach(function(s2){
+    var d="";
+    for(var k=0;k<s2.pts.length;k++){
+      var px=X(s2.pts[k].ts), py=Y(s2.pts[k].v);
+      if(k===0){ d="M"+px.toFixed(1)+" "+py.toFixed(1); }
+      else { d+=" L"+px.toFixed(1)+" "+Y(s2.pts[k-1].v).toFixed(1)+" L"+px.toFixed(1)+" "+py.toFixed(1); }
+    }
+    out+='<path d="'+d+'" fill="none" stroke="'+s2.color+'" stroke-width="2" stroke-linejoin="round"/>';
+    var last=s2.pts[s2.pts.length-1];
+    out+='<circle cx="'+X(last.ts).toFixed(1)+'" cy="'+Y(last.v).toFixed(1)+'" r="3.2" fill="'+s2.color+'"/>';
+  });
+  out+='</svg>';
+  out+='<div class="legend">'+series.map(function(s2){
+    return '<span><i class="dot" style="background:'+s2.color+'"></i>'+esc(s2.name)+' <b class="num" style="font-weight:600">'+fmt1(s2.end)+'</b></span>';
+  }).join("")+'</div>';
+  return out;
+}
+function sessionBarsSvg(){
+  var sess=state.sessions.slice().sort(function(a,b){ return a.startedAt-b.startedAt; });
+  if(!sess.length) return '<div class="empty">No sessions yet.</div>';
+  var data=sess.map(function(s){
+    var byCat={beer:0,cooler:0,wine:0,liquor:0}, tot=0;
+    state.roster.people.forEach(function(p){
+      entriesFor(p.id, s.id).forEach(function(e){ var v=std(e.ml,e.abv); byCat[e.cat]=(byCat[e.cat]||0)+v; tot+=v; });
+    });
+    return {s:s, byCat:byCat, tot:tot};
+  });
+  var maxV=niceMax(Math.max.apply(null, data.map(function(d){return d.tot;})));
+  var narrow=(window.innerWidth||1000)<560;
+  var W=narrow?420:720, H=narrow?240:256, L=narrow?36:42, R=14, T=26, B=34;
+  var n=data.length, band=(W-L-R)/n, bw=Math.min(52, band*0.6);
+  function Y(v){ return H-B - (v/maxV)*(H-B-T); }
+  var nt=tickCount(maxV);
+  var out='<svg class="chart" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Standard drinks per session by category">';
+  for(var i=0;i<=nt;i++){
+    var v=maxV*i/nt, y=Y(v);
+    out+='<line class="gl" x1="'+L+'" y1="'+y+'" x2="'+(W-R)+'" y2="'+y+'"/>';
+    out+='<text x="'+(L-7)+'" y="'+(y+3.5)+'" text-anchor="end">'+tickLabel(v,maxV)+'</text>';
+  }
+  out+='<text x="2" y="'+(T-13)+'" text-anchor="start" style="font-size:9px">std drinks</text>';
+  data.forEach(function(d,i){
+    var cx=L+band*i+band/2, x=cx-bw/2, yCursor=H-B;
+    CATS.forEach(function(c){
+      var v=d.byCat[c.id]||0; if(v<=0) return;
+      var h=(v/maxV)*(H-B-T);
+      yCursor-=h;
+      out+='<rect x="'+x.toFixed(1)+'" y="'+yCursor.toFixed(1)+'" width="'+bw+'" height="'+h.toFixed(1)+'" fill="'+c.color+'"/>';
+    });
+    if(d.tot>0) out+='<text x="'+cx.toFixed(1)+'" y="'+(Y(d.tot)-5).toFixed(1)+'" text-anchor="middle">'+fmt1(d.tot)+'</text>';
+    var label=d.s.name.length>14? d.s.name.slice(0,13)+"…" : d.s.name;
+    out+='<text x="'+cx.toFixed(1)+'" y="'+(H-B+14)+'" text-anchor="middle">'+esc(label)+'</text>';
+    out+='<text x="'+cx.toFixed(1)+'" y="'+(H-B+25)+'" text-anchor="middle" style="font-size:9px">'+esc(new Date(d.s.startedAt).toLocaleDateString(undefined,{month:"short",day:"numeric"}))+'</text>';
+  });
+  out+='<line class="axis" x1="'+L+'" y1="'+(H-B)+'" x2="'+(W-R)+'" y2="'+(H-B)+'"/></svg>';
+  out+='<div class="legend">'+CATS.map(function(c){
+    return '<span><i class="dot" style="background:'+c.color+'"></i>'+c.name+'</span>';
+  }).join("")+'</div>';
+  return out;
+}
+
+/* ---------- log list ---------- */
+function renderLogList(){
+  var sel=document.getElementById("logFilter");
+  if(document.activeElement!==sel){
+    sel.innerHTML='<option value="all">Everyone</option>'+state.roster.people.map(function(p){
+      return '<option value="'+esc(p.id)+'"'+(state.logFilter===p.id?" selected":"")+'>'+esc(p.name)+'</option>';
+    }).join("");
+  }
+  var sid=scopeSid();
+  var rows=[];
+  state.roster.people.forEach(function(p){
+    if(state.logFilter!=="all" && state.logFilter!==p.id) return;
+    entriesFor(p.id,sid).forEach(function(e){ rows.push({p:p, e:e}); });
+  });
+  rows.sort(function(a,b){ return b.e.ts-a.e.ts; });
+  var shown=rows.slice(0,60);
+  var el=document.getElementById("logList");
+  if(!shown.length){ el.innerHTML='<div class="empty">Nothing logged yet.</div>'; return; }
+  el.innerHTML = shown.map(function(r){
+    var c=CATMAP[r.e.cat]||{name:r.e.cat,color:"var(--ink-3)"};
+    var sName = state.scope==="all" ? (state.sessions.filter(function(s){return s.id===r.e.sid;})[0]||{name:""}).name : "";
+    return '<div class="entry">'+
+      '<span class="tag" style="background:'+c.color+'">'+esc(c.name)+'</span>'+
+      '<span><b>'+esc(r.p.name)+'</b> <span class="when num size">'+r.e.ml+' mL · '+r.e.abv+'%</span> <span class="when num">'+fmt1(std(r.e.ml,r.e.abv))+' std</span>'+
+        (sName? ' <span class="when">· '+esc(sName)+'</span>':'')+'</span>'+
+      '<span class="when num">'+esc(new Date(r.e.ts).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}))+'</span>'+
+      '<button class="del" data-act="delentry" data-pid="'+esc(r.p.id)+'" data-eid="'+esc(r.e.id)+'" aria-label="Delete entry">×</button>'+
+    '</div>';
+  }).join("") + (rows.length>shown.length? '<div class="empty">'+(rows.length-shown.length)+' older entries not shown</div>' : "");
+}
+
+/* ---------- setup ---------- */
+function renderSetup(){
+  var man=document.getElementById("peopleMan");
+  if(!man.contains(document.activeElement)){
+    man.innerHTML = state.roster.people.map(function(p){
+      return '<div class="manrow">'+
+        '<input type="text" value="'+esc(p.name)+'" data-act="rename" data-pid="'+esc(p.id)+'" maxlength="24">'+
+        '<select class="pill" data-act="reteam" data-pid="'+esc(p.id)+'">'+
+          '<option value="">No team</option>'+
+          state.roster.teams.map(function(t){ return '<option value="'+esc(t.id)+'"'+(t.id===p.teamId?" selected":"")+'>'+esc(t.name)+'</option>'; }).join("")+
+        '</select>'+
+        '<button class="btn danger del2" data-act="delperson" data-pid="'+esc(p.id)+'">Remove</button>'+
+      '</div>';
+    }).join("") + (state.roster.teams.length? state.roster.teams.map(function(t){
+      return '<div class="manrow" style="grid-template-columns:1fr auto">'+
+        '<input type="text" value="'+esc(t.name)+'" data-act="renameteam" data-tid="'+esc(t.id)+'" maxlength="24">'+
+        '<button class="btn danger" data-act="delteam" data-tid="'+esc(t.id)+'">Remove team</button></div>';
+    }).join("") : "");
+  }
+  var nt=document.getElementById("newTeam");
+  if(document.activeElement!==nt){
+    nt.innerHTML='<option value="">No team</option>'+state.roster.teams.map(function(t){ return '<option value="'+esc(t.id)+'">'+esc(t.name)+'</option>'; }).join("");
+  }
+  var tb=document.getElementById("sizeTable");
+  if(!tb.contains(document.activeElement)){
+    tb.innerHTML = CATS.map(function(c){
+      var s=state.config.sizes[c.id]||DEFAULT_SIZES[c.id];
+      return '<tr><td style="color:'+c.color+'; font-weight:600">'+c.name+'</td>'+
+        '<td><input type="number" min="1" max="2000" value="'+s.ml+'" data-act="szml" data-cat="'+c.id+'"></td>'+
+        '<td><input type="number" min="0" max="80" step="0.1" value="'+s.abv+'" data-act="szabv" data-cat="'+c.id+'"></td>'+
+        '<td class="num">'+fmt1(std(s.ml,s.abv))+'</td></tr>';
+    }).join("");
+  }
+  var sm=document.getElementById("sessionMan");
+  if(!sm.contains(document.activeElement)){
+    sm.innerHTML = state.sessions.slice().sort(function(a,b){return b.startedAt-a.startedAt;}).map(function(s){
+      var act = activeSession() && activeSession().id===s.id;
+      return '<div class="manrow" style="grid-template-columns:1fr auto auto">'+
+        '<input type="text" value="'+esc(s.name)+'" data-act="renamesession" data-sid="'+esc(s.id)+'" maxlength="30">'+
+        '<button class="btn'+(act?" solid":"")+'" data-act="setactive" data-sid="'+esc(s.id)+'">'+(act?"Active":"Make active")+'</button>'+
+        '<button class="btn danger" data-act="delsession" data-sid="'+esc(s.id)+'">Delete</button>'+
+      '</div>';
+    }).join("") || '<div class="note">No sessions yet.</div>';
+  }
+}
+function renderFoot(){
+  document.getElementById("foot").innerHTML =
+    'Standard drinks use the Canadian definition: 13.45 g (17.05 mL) of pure alcohol per standard drink. '+
+    'A 341 mL beer at 5%, a 142 mL glass of wine at 12% and a 43 mL shot at 40% are each 1.0. '+
+    (state.db? 'Everyone with this link sees the same board, live.' : 'Not connected to the shared board — data is kept in this browser only. Check the Firebase config.');
+}
+
+/* ---------- actions ---------- */
+function ensureSession(){
+  if(activeSession()) return activeSession();
+  var s={id:uid("s"), name:"Session 1", startedAt:Date.now(), createdAt:Date.now()};
+  state.sessions.push(s);
+  state.config.activeSessionId=s.id;
+  saveSession(s); writeDoc("meta/config", clone(state.config));
+  return s;
+}
+function logDrink(pid, cat, ml, abv, ts){
+  if(!pid){ toast("Pick who you are first (top right)."); return; }
+  var s=ensureSession();
+  var l = state.logs[pid] || (state.logs[pid]={entries:[]});
+  l.entries = l.entries.concat([{id:uid("e"), sid:s.id, cat:cat, ts:ts||Date.now(), ml:ml, abv:abv}]);
+  saveLog(pid);
+}
+function undoLast(){
+  var pid=state.me; if(!pid){ toast("Pick who you are first."); return; }
+  var s=activeSession(); if(!s){ toast("Nothing to undo."); return; }
+  var l=state.logs[pid]; if(!l||!l.entries.length){ toast("Nothing to undo."); return; }
+  var mine=l.entries.filter(function(e){ return e.sid===s.id; });
+  if(!mine.length){ toast("Nothing to undo in this session."); return; }
+  var last=mine.reduce(function(a,b){ return b.ts>=a.ts? b : a; });
+  l.entries = l.entries.filter(function(e){ return e.id!==last.id; });
+  saveLog(pid);
+  toast("Removed 1 "+(CATMAP[last.cat]||{name:"drink"}).name.toLowerCase());
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", function(ev){
+  var el = ev.target.closest("[data-act]");
+  if(!el) return;
+  var act = el.getAttribute("data-act");
+
+  if(act==="size"){
+    ev.preventDefault(); ev.stopPropagation();
+    var c=el.getAttribute("data-cat");
+    openSizeCat = (openSizeCat===c? null : c);
+    pendingSize = openSizeCat ? Object.assign({cat:openSizeCat}, state.config.sizes[openSizeCat]) : null;
+    renderSizePanel();
+    return;
+  }
+  if(act==="log"){
+    var cat=el.getAttribute("data-cat");
+    var s=state.config.sizes[cat]||DEFAULT_SIZES[cat];
+    logDrink(state.me, cat, s.ml, s.abv);
+    return;
+  }
+  if(act==="preset"){
+    pendingSize={cat:openSizeCat, ml:+el.getAttribute("data-ml"), abv:+el.getAttribute("data-abv")};
+    renderSizePanel(); return;
+  }
+  if(act==="logcustom"){
+    var ml=+document.getElementById("szMl").value, abv=+document.getElementById("szAbv").value;
+    if(!(ml>0)||!(abv>=0)){ toast("Enter a size and strength."); return; }
+    logDrink(state.me, openSizeCat, ml, abv);
+    return;
+  }
+  if(act==="setdefault"){
+    var ml2=+document.getElementById("szMl").value, abv2=+document.getElementById("szAbv").value;
+    if(!(ml2>0)||!(abv2>=0)){ toast("Enter a size and strength."); return; }
+    state.config.sizes[openSizeCat]={ml:ml2, abv:abv2};
+    pendingSize={cat:openSizeCat, ml:ml2, abv:abv2};
+    saveConfig(); toast("Default "+openSizeCat+" size updated");
+    return;
+  }
+  if(act==="closesize"){ openSizeCat=null; pendingSize=null; renderSizePanel(); return; }
+
+  if(act==="delentry"){
+    var pid=el.getAttribute("data-pid"), eid=el.getAttribute("data-eid");
+    var l=state.logs[pid]; if(!l) return;
+    l.entries=l.entries.filter(function(e){ return e.id!==eid; });
+    saveLog(pid); return;
+  }
+  if(act==="delperson"){
+    var pid2=el.getAttribute("data-pid");
+    if(el.dataset.armed!=="1"){ el.dataset.armed="1"; el.textContent="Sure?"; setTimeout(function(){ if(el.isConnected){el.dataset.armed="0"; el.textContent="Remove";} },3000); return; }
+    state.roster.people=state.roster.people.filter(function(p){ return p.id!==pid2; });
+    delete state.logs[pid2];
+    if(state.me===pid2){ state.me=null; saveMe(null); }
+    saveRoster();
+    if(state.db) state.db.doc("log/"+pid2).delete().catch(function(){});
+    return;
+  }
+  if(act==="delteam"){
+    var tid=el.getAttribute("data-tid");
+    if(el.dataset.armed!=="1"){ el.dataset.armed="1"; el.textContent="Sure?"; setTimeout(function(){ if(el.isConnected){el.dataset.armed="0"; el.textContent="Remove team";} },3000); return; }
+    state.roster.teams=state.roster.teams.filter(function(t){ return t.id!==tid; });
+    state.roster.people.forEach(function(p){ if(p.teamId===tid) p.teamId=""; });
+    saveRoster(); return;
+  }
+  if(act==="setactive"){
+    state.config.activeSessionId=el.getAttribute("data-sid");
+    state.scope="session"; saveConfig(); return;
+  }
+  if(act==="delsession"){
+    var sid3=el.getAttribute("data-sid");
+    if(el.dataset.armed!=="1"){ el.dataset.armed="1"; el.textContent="Sure?"; setTimeout(function(){ if(el.isConnected){el.dataset.armed="0"; el.textContent="Delete";} },3000); return; }
+    removeSession(sid3); return;
+  }
+});
+
+document.addEventListener("change", function(ev){
+  var el=ev.target;
+  var act=el.getAttribute && el.getAttribute("data-act");
+  if(act==="rename"){
+    var p=personById(el.getAttribute("data-pid")); if(!p) return;
+    p.name=(el.value||"").trim()||p.name; saveRoster(); return;
+  }
+  if(act==="reteam"){
+    var p2=personById(el.getAttribute("data-pid")); if(!p2) return;
+    p2.teamId=el.value; saveRoster(); return;
+  }
+  if(act==="renameteam"){
+    var t=teamById(el.getAttribute("data-tid")); if(!t) return;
+    t.name=(el.value||"").trim()||t.name; saveRoster(); return;
+  }
+  if(act==="renamesession"){
+    var s=state.sessions.filter(function(x){return x.id===el.getAttribute("data-sid");})[0]; if(!s) return;
+    s.name=(el.value||"").trim()||s.name; saveSession(s); return;
+  }
+  if(act==="szml"||act==="szabv"){
+    var cat=el.getAttribute("data-cat");
+    var cur=state.config.sizes[cat]||clone(DEFAULT_SIZES[cat]);
+    var v=+el.value;
+    if(act==="szml"){ if(!(v>0)) return; cur.ml=v; } else { if(!(v>=0)) return; cur.abv=v; }
+    state.config.sizes[cat]=cur; saveConfig(); return;
+  }
+});
+
+document.getElementById("sessionSel").addEventListener("change", function(){
+  if(!this.value) return;
+  state.config.activeSessionId=this.value; state.scope="session"; saveConfig();
+});
+document.getElementById("meSel").addEventListener("change", function(){
+  state.me=this.value||null; saveMe(state.me); render();
+});
+document.getElementById("logFilter").addEventListener("change", function(){
+  state.logFilter=this.value; renderLogList();
+});
+document.getElementById("scopeSession").addEventListener("click", function(){ state.scope="session"; render(); });
+document.getElementById("scopeAll").addEventListener("click", function(){ state.scope="all"; render(); });
+document.getElementById("chartPeople").addEventListener("click", function(){ state.chartBy="people"; render(); });
+document.getElementById("chartTeams").addEventListener("click", function(){ state.chartBy="teams"; render(); });
+document.getElementById("undoBtn").addEventListener("click", undoLast);
+
+var _rz, _wasNarrow=(window.innerWidth||1000)<560;
+window.addEventListener("resize", function(){
+  clearTimeout(_rz);
+  _rz=setTimeout(function(){
+    var n=(window.innerWidth||1000)<560;
+    if(n!==_wasNarrow){ _wasNarrow=n; renderChart(); }
+  }, 180);
+});
+
+document.getElementById("newSessionBtn").addEventListener("click", function(){
+  var n=state.sessions.length+1;
+  var d=new Date();
+  var s={id:uid("s"), name:d.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" night", startedAt:Date.now(), createdAt:Date.now()};
+  if(state.sessions.some(function(x){return x.name===s.name;})) s.name += " #"+n;
+  state.sessions.push(s);
+  state.config.activeSessionId=s.id;
+  state.scope="session";
+  state.config.demo=false;
+  saveSession(s); saveConfig();
+  toast("Started "+s.name);
+});
+
+document.getElementById("addPerson").addEventListener("click", function(){
+  var i=document.getElementById("newName");
+  var name=(i.value||"").trim(); if(!name){ i.focus(); return; }
+  var p={id:uid("p"), name:name, teamId:document.getElementById("newTeam").value||""};
+  state.roster.people.push(p);
+  i.value="";
+  if(!state.me){ state.me=p.id; saveMe(p.id); }
+  saveRoster();
+});
+document.getElementById("addTeam").addEventListener("click", function(){
+  var i=document.getElementById("newTeamName");
+  var name=(i.value||"").trim(); if(!name){ i.focus(); return; }
+  state.roster.teams.push({id:uid("t"), name:name});
+  i.value=""; saveRoster();
+});
+document.getElementById("clearDemo").addEventListener("click", function(){
+  var pids=state.roster.people.map(function(p){return p.id;});
+  var sids=state.sessions.map(function(s){return s.id;});
+  state.roster={people:[],teams:[]}; state.sessions=[]; state.logs={};
+  state.config={sizes:clone(DEFAULT_SIZES), activeSessionId:null, demo:false};
+  state.me=null; saveMe(null);
+  render();
+  if(state.db){
+    pids.forEach(function(id){ state.db.doc("log/"+id).delete().catch(function(){}); });
+    sids.forEach(function(id){ state.db.doc("sessions/"+id).delete().catch(function(){}); });
+    writeDoc("meta/roster", clone(state.roster));
+    writeDoc("meta/config", clone(state.config));
+  } else saveLocal();
+  toast("Cleared. Add your people in Setup.");
+  document.querySelector("details.setup").open=true;
+});
+
+/* ---------- backfill ---------- */
+var dlg=document.getElementById("backfillDlg");
+function openBackfill(){
+  var bp=document.getElementById("bfPerson");
+  bp.innerHTML=state.roster.people.map(function(p){ return '<option value="'+esc(p.id)+'"'+(p.id===state.me?" selected":"")+'>'+esc(p.name)+'</option>'; }).join("");
+  var bs=document.getElementById("bfSession");
+  bs.innerHTML=state.sessions.slice().sort(function(a,b){return b.startedAt-a.startedAt;}).map(function(s){
+    return '<option value="'+esc(s.id)+'">'+esc(s.name)+'</option>';
+  }).join("") + '<option value="__new__">+ New session for this night</option>';
+  var y=new Date(Date.now()-86400000);
+  document.getElementById("bfDate").value = y.getFullYear()+"-"+String(y.getMonth()+1).padStart(2,"0")+"-"+String(y.getDate()).padStart(2,"0");
+  document.getElementById("bfCounts").innerHTML = CATS.map(function(c){
+    var s=state.config.sizes[c.id]||DEFAULT_SIZES[c.id];
+    return '<div class="cbox" style="border-color:'+c.color+'"><div class="cl" style="color:'+c.color+'">'+c.name+'</div>'+
+      '<input type="number" min="0" max="99" step="1" value="0" data-bfcat="'+c.id+'" aria-label="'+c.name+' count">'+
+      '<div class="note num" style="margin-top:4px">'+s.ml+' mL · '+s.abv+'%</div></div>';
+  }).join("");
+  updateBfPreview();
+  if(!state.roster.people.length){ toast("Add people in Setup first."); return; }
+  dlg.showModal();
+}
+function bfInputs(){ return Array.prototype.slice.call(document.querySelectorAll("[data-bfcat]")); }
+function updateBfPreview(){
+  var n=0, sd=0;
+  bfInputs().forEach(function(i){
+    var c=i.getAttribute("data-bfcat"), v=Math.max(0, Math.floor(+i.value||0));
+    var s=state.config.sizes[c]||DEFAULT_SIZES[c];
+    n+=v; sd+=v*std(s.ml,s.abv);
+  });
+  var el=document.getElementById("bfPreview");
+  if(!n){ el.textContent="Entries get spread evenly across the window so the pace chart looks right."; return; }
+  var st=document.getElementById("bfStart").value, en=document.getElementById("bfEnd").value;
+  el.textContent = n+" drinks · "+fmt1(sd)+" standard drinks, spread evenly between "+st+" and "+en+(en<st?" (next day)":"")+".";
+}
+document.getElementById("backfillBtn").addEventListener("click", openBackfill);
+document.getElementById("bfCancel").addEventListener("click", function(){ dlg.close(); });
+dlg.addEventListener("input", function(ev){ if(ev.target.matches("[data-bfcat],#bfStart,#bfEnd")) updateBfPreview(); });
+document.getElementById("bfSave").addEventListener("click", function(){
+  var pid=document.getElementById("bfPerson").value;
+  if(!pid){ toast("Pick a person."); return; }
+  var dateStr=document.getElementById("bfDate").value;
+  var startStr=document.getElementById("bfStart").value||"20:00";
+  var endStr=document.getElementById("bfEnd").value||"23:59";
+  if(!dateStr){ toast("Pick a date."); return; }
+  var dparts=dateStr.split("-").map(Number);
+  function mk(hm, addDay){
+    var p=hm.split(":").map(Number);
+    return new Date(dparts[0], dparts[1]-1, dparts[2]+(addDay?1:0), p[0], p[1], 0, 0).getTime();
+  }
+  var t0=mk(startStr,false);
+  var t1=mk(endStr, endStr<=startStr);
+  var items=[];
+  bfInputs().forEach(function(i){
+    var c=i.getAttribute("data-bfcat"), v=Math.max(0, Math.floor(+i.value||0));
+    for(var k=0;k<v;k++) items.push(c);
+  });
+  if(!items.length){ toast("Enter at least one drink."); return; }
+  // interleave categories so the timeline reads like a real night
+  var byCat={}; items.forEach(function(c){ (byCat[c]=byCat[c]||[]).push(c); });
+  var order=[], keys=CATS.map(function(c){return c.id;}).filter(function(k){ return byCat[k]; });
+  while(order.length<items.length){
+    for(var q=0;q<keys.length;q++){ if(byCat[keys[q]].length) order.push(byCat[keys[q]].pop()); }
+  }
+  var sidSel=document.getElementById("bfSession").value;
+  var sess;
+  if(sidSel==="__new__" || !sidSel){
+    sess={id:uid("s"), name:new Date(t0).toLocaleDateString(undefined,{month:"short",day:"numeric"})+" night", startedAt:t0, createdAt:Date.now()};
+    state.sessions.push(sess); saveSession(sess);
+  } else {
+    sess=state.sessions.filter(function(s){ return s.id===sidSel; })[0];
+  }
+  var span=Math.max(1, t1-t0);
+  var l=state.logs[pid]||(state.logs[pid]={entries:[]});
+  var added=order.map(function(c,idx){
+    var s=state.config.sizes[c]||DEFAULT_SIZES[c];
+    return {id:uid("e"), sid:sess.id, cat:c, ts:Math.round(t0 + span*((idx+0.5)/order.length)), ml:s.ml, abv:s.abv};
+  });
+  l.entries=l.entries.concat(added);
+  state.config.demo=false;
+  saveLog(pid);
+  dlg.close();
+  toast("Added "+added.length+" drinks for "+(personById(pid)||{name:"them"}).name);
+});
+
+/* ---------- boot ---------- */
+function bootLocal(){
+  if(!loadLocal()){
+    var d=demoState();
+    state.roster=d.roster; state.config=d.config; state.sessions=d.sessions; state.logs=d.logs;
+  }
+  state.me = loadMe() || null;
+  if(state.me && !personById(state.me)) state.me=null;
+  render();
+}
+bootLocal();
+
+(async function(){
+  var db=null;
+  try{ db = await (window.__dbReady || Promise.resolve(null)); }catch(e){ db=null; }
+  if(!db){ render(); return; }
+  state.db=db;
+  var remote={roster:null, config:null, sessions:null, logs:null};
+  var got={roster:false, config:false, sessions:false, logs:false};
+  var seeded=false;
+  function onErr(){ /* keep rendering with whatever we already have */ }
+  function ready(){ return got.roster && got.config && got.sessions && got.logs; }
+  function empty(){
+    return !remote.roster && (!remote.sessions || !remote.sessions.length) &&
+           (!remote.logs || !Object.keys(remote.logs).length);
+  }
+  function apply(){
+    if(!ready()) return;
+    if(empty()){
+      // Nothing stored yet: push what this view is showing so the board isn't blank for anyone.
+      if(!seeded){
+        seeded=true;
+        writeDoc("meta/roster", clone(state.roster));
+        writeDoc("meta/config", clone(state.config));
+        state.sessions.forEach(function(s){ writeDoc("sessions/"+s.id, clone(s)); });
+        Object.keys(state.logs).forEach(function(pid){ writeDoc("log/"+pid, {entries:state.logs[pid].entries}); });
+      }
+      render();
+      return;
+    }
+    if(remote.roster) state.roster={people:remote.roster.people||[], teams:remote.roster.teams||[]};
+    if(remote.config) state.config={sizes:remote.config.sizes||clone(DEFAULT_SIZES), activeSessionId:remote.config.activeSessionId||null, demo:!!remote.config.demo};
+    if(remote.sessions) state.sessions=remote.sessions;
+    if(remote.logs) state.logs=remote.logs;
+    if(state.me && !personById(state.me)) state.me=null;
+    render();
+  }
+
+  db.doc("meta/roster").onSnapshot(function(snap){
+    got.roster=true; remote.roster = snap.exists ? snap.data() : null; apply();
+  }, onErr);
+  db.doc("meta/config").onSnapshot(function(snap){
+    got.config=true; remote.config = snap.exists ? snap.data() : null; apply();
+  }, onErr);
+  db.collection("sessions").onSnapshot(function(snap){
+    got.sessions=true;
+    remote.sessions = snap.docs.map(function(d){ var v=d.data()||{}; return {id:d.id, name:v.name||"Session", startedAt:v.startedAt||0, createdAt:v.createdAt||0}; })
+      .sort(function(a,b){ return b.startedAt-a.startedAt; });
+    apply();
+  }, onErr);
+  db.collection("log").onSnapshot(function(snap){
+    got.logs=true;
+    var logs={};
+    snap.docs.forEach(function(d){ logs[d.id]={entries:(d.data()||{}).entries||[]}; });
+    remote.logs=logs;
+    apply();
+  }, onErr);
+
+  state.ready=true;
+})();
+
+})();
+</script>
+
+<script>
+/* Resolves with a Firestore-backed store, or null if Firebase can't load
+   (the page then falls back to this browser's localStorage). */
+window.__dbResolve = null;
+window.__dbReady = new Promise(function(r){ window.__dbResolve = r; });
+setTimeout(function(){ if(window.__dbResolve) { window.__dbResolve(null); window.__dbResolve=null; } }, 9000);
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getFirestore, doc, collection, setDoc, deleteDoc, onSnapshot }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+
+/* ---- PASTE YOUR FIREBASE WEB CONFIG HERE ---- */
+const firebaseConfig = {
+  apiKey: "AIzaSyAC2GKgduRcpqxxHha9KV28U7jwJoZD9HE",
+  authDomain: "tally-board-e2d04.firebaseapp.com",
+  projectId: "tally-board-e2d04",
+  storageBucket: "tally-board-e2d04.firebasestorage.app",
+  messagingSenderId: "370140151269",
+  appId: "1:370140151269:web:090a8c374de8c5e003030c"
+};
+/* --------------------------------------------- */
+
+/* Which Firestore document tree this board lives under. Change "main" to run
+   a second, independent board off the same Firebase project. */
+const BOARD = "main";
+const P = (p) => "boards/" + BOARD + "/" + p;
+
+function adapt(fs){
+  return {
+    doc(path){
+      const ref = doc(fs, P(path));
+      return {
+        set:(d)=>setDoc(ref, d),
+        delete:()=>deleteDoc(ref),
+        onSnapshot:(next, err)=>onSnapshot(ref,
+          (s)=>next({ id:s.id, exists:s.exists(), data:()=>s.data() }),
+          (e)=>err && err({code:e.code||"unavailable", message:e.message}))
+      };
+    },
+    collection(path){
+      const ref = collection(fs, P(path));
+      return {
+        onSnapshot:(next, err)=>onSnapshot(ref,
+          (s)=>next({ docs:s.docs.map((d)=>({ id:d.id, exists:true, data:()=>d.data() })) }),
+          (e)=>err && err({code:e.code||"unavailable", message:e.message}))
+      };
+    }
+  };
+}
+
+let store = null;
+try{
+  if(!String(firebaseConfig.projectId).startsWith("REPLACE")){
+    store = adapt(getFirestore(initializeApp(firebaseConfig)));
+  } else {
+    console.warn("Tally Board: Firebase config not filled in — running on local storage only.");
+  }
+}catch(e){
+  console.error("Tally Board: Firebase failed to start", e);
+  store = null;
+}
+if(window.__dbResolve){ window.__dbResolve(store); window.__dbResolve = null; }
+</script>
+
+</body>
+</html>
