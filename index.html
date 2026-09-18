@@ -72,6 +72,16 @@ select.pill{padding-right:26px; background-image:linear-gradient(45deg,transpare
 .seg button{border:0; background:transparent; border-radius:999px; padding:5px 12px; font-size:13px; font-weight:600; color:var(--ink-2)}
 .seg button[aria-pressed="true"]{background:var(--ink); color:var(--bg)}
 
+/* sync bar */
+.syncbar{
+  position:sticky; top:calc(env(safe-area-inset-top, 0px) + 52px); z-index:25;
+  margin:0 auto; max-width:980px; padding:7px 14px; border-radius:0 0 8px 8px;
+  font-size:12.5px; font-weight:600; letter-spacing:.01em; text-align:center;
+}
+.syncbar.ok{background:color-mix(in srgb, var(--good) 14%, var(--panel)); color:var(--good); border:1px solid color-mix(in srgb, var(--good) 34%, transparent)}
+.syncbar.warn{background:color-mix(in srgb, var(--warn) 16%, var(--panel)); color:var(--warn); border:1px solid color-mix(in srgb, var(--warn) 38%, transparent)}
+.syncbar.bad{background:var(--wine); color:#fff; border:1px solid var(--wine); font-size:13px; padding:10px 14px; text-align:left}
+
 /* banner */
 .banner{
   display:flex; gap:10px; align-items:center; flex-wrap:wrap;
@@ -237,11 +247,8 @@ dialog .dft{display:flex; gap:8px; justify-content:flex-end; padding:0 16px 16px
   </div>
 </header>
 
+<div id="syncbar" class="syncbar warn">Connecting to the shared board...</div>
 <div class="wrap">
-  <div class="banner" id="demoBanner" hidden>
-    <span><b>Sample data loaded.</b> Names, teams and entries below are made up so the board isn't empty.</span>
-    <button class="btn danger" id="clearDemo" style="margin-left:auto">Clear it and start fresh</button>
-  </div>
 
   <section>
     <div class="sechead">
@@ -320,6 +327,21 @@ dialog .dft{display:flex; gap:8px; justify-content:flex-end; padding:0 16px 16px
         <div class="mini" style="margin-bottom:8px">Sessions</div>
         <div id="sessionMan"></div>
       </div>
+
+      <div>
+        <div class="mini" style="margin-bottom:8px">Backups &amp; safety</div>
+        <div id="backupList" class="note">Open this panel and hit Refresh to list backups.</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px">
+          <button class="btn" id="refreshBackups">Refresh list</button>
+          <button class="btn" id="backupNow">Back up now</button>
+          <button class="btn" id="exportJson">Download JSON copy</button>
+        </div>
+        <div class="fieldrow" style="margin-top:14px">
+          <div class="f"><label for="wipeWord">Wipe the whole board &mdash; type WIPE to confirm</label><input type="text" id="wipeWord" placeholder="WIPE"></div>
+          <div><button class="btn danger" id="wipeBtn">Wipe board</button></div>
+        </div>
+        <p class="note">The board backs itself up once a day, and again before any wipe or restore. A wipe or a restore changes the board for everyone, not just this device.</p>
+      </div>
     </div>
   </details>
 
@@ -386,7 +408,9 @@ var state = {
   me:null,
   logFilter:"all",
   db:null,
-  ready:false
+  ready:false,
+  sync:"connecting",
+  lastBackupDay:null
 };
 var pendingSize = null;    // {cat, ml, abv} staged from the size panel
 var openSizeCat = null;
@@ -415,37 +439,6 @@ function loadLocal(){
 function loadMe(){ try{ return localStorage.getItem("tallyboard.me"); }catch(e){ return null; } }
 function saveMe(v){ try{ v ? localStorage.setItem("tallyboard.me", v) : localStorage.removeItem("tallyboard.me"); }catch(e){} }
 
-/* ---------- demo seed (used only when there is no data at all) ---------- */
-function demoState(){
-  var t1={id:"t_cottage",name:"Cottage Crew"}, t2={id:"t_porch",name:"Porch Gang"};
-  var people=[
-    {id:"p_luc",name:"Luc",teamId:t1.id},
-    {id:"p_jess",name:"Jess",teamId:t1.id},
-    {id:"p_marc",name:"Marc",teamId:t2.id},
-    {id:"p_priya",name:"Priya",teamId:t2.id}
-  ];
-  var sid="s_demo";
-  var base=new Date(); base.setHours(20,15,0,0); base.setDate(base.getDate()-1);
-  var t0=base.getTime();
-  var plan={p_luc:[["beer",0],["beer",42],["beer",95],["liquor",130],["beer",171]],
-            p_jess:[["cooler",8],["cooler",55],["wine",110],["cooler",160]],
-            p_marc:[["beer",15],["liquor",60],["beer",88],["liquor",120],["beer",152],["liquor",186]],
-            p_priya:[["wine",22],["wine",75],["wine",128]]};
-  var logs={};
-  Object.keys(plan).forEach(function(pid){
-    logs[pid]={entries:plan[pid].map(function(x){
-      var s=DEFAULT_SIZES[x[0]];
-      return {id:uid("e"), sid:sid, cat:x[0], ts:t0 + x[1]*60000, ml:s.ml, abv:s.abv};
-    })};
-  });
-  return {
-    roster:{people:people, teams:[t1,t2]},
-    config:{sizes:clone(DEFAULT_SIZES), activeSessionId:sid, demo:true},
-    sessions:[{id:sid, name:"Sample night", startedAt:t0, createdAt:t0}],
-    logs:logs
-  };
-}
-
 /* ---------- persistence ---------- */
 function toast(msg){
   var el=document.getElementById("toast");
@@ -459,15 +452,16 @@ function writeDoc(path, data){
       if(e && e.code==="invalid_argument") toast("Read-only on this board — your change wasn't saved.");
       else if(e && e.code==="quota_exceeded") toast("Storage is full. Delete an old session.");
       else toast("Couldn't save that. Try again.");
+      setSync("error", (e&&e.message)||"");
     });
   } else {
     saveLocal();
   }
   void 0;
 }
-function saveRoster(){ state.config.demo=false; render(); writeDoc("meta/roster", clone(state.roster)); writeDoc("meta/config", clone(state.config)); }
-function saveConfig(){ render(); writeDoc("meta/config", clone(state.config)); }
-function saveSession(s){ render(); writeDoc("sessions/"+s.id, clone(s)); }
+function saveRoster(){ render(); mirror(); backupIfDue(); writeDoc("meta/roster", clone(state.roster)); writeDoc("meta/config", clone(state.config)); }
+function saveConfig(){ render(); mirror(); writeDoc("meta/config", clone(state.config)); }
+function saveSession(s){ render(); mirror(); backupIfDue(); writeDoc("sessions/"+s.id, clone(s)); }
 function removeSession(id){
   state.sessions = state.sessions.filter(function(s){ return s.id!==id; });
   Object.keys(state.logs).forEach(function(pid){
@@ -483,11 +477,10 @@ function removeSession(id){
 }
 function saveLog(pid){
   var l = state.logs[pid] || {entries:[]};
-  var wasDemo = state.config.demo;
-  state.config.demo=false;
   render();
+  mirror();
+  backupIfDue();
   writeDoc("log/"+pid, {entries:l.entries});
-  if(wasDemo) writeDoc("meta/config", clone(state.config));
   if(l.entries.length>1500) toast("That's a lot of entries — consider archiving old sessions.");
 }
 
@@ -533,7 +526,6 @@ function render(){
   renderLogList();
   renderSetup();
   renderFoot();
-  document.getElementById("demoBanner").hidden = !state.config.demo;
 }
 
 function renderHeader(){
@@ -899,7 +891,7 @@ function renderFoot(){
   document.getElementById("foot").innerHTML =
     'Standard drinks use the Canadian definition: 13.45 g (17.05 mL) of pure alcohol per standard drink. '+
     'A 341 mL beer at 5%, a 142 mL glass of wine at 12% and a 43 mL shot at 40% are each 1.0. '+
-    (state.db? 'Everyone with this link sees the same board, live.' : 'Not connected to the shared board — data is kept in this browser only. Check the Firebase config.');
+    (state.db? 'Everyone with this link sees the same board, live.' : 'Not connected to the shared board — nothing logged here is being shared.');
 }
 
 /* ---------- actions ---------- */
@@ -1085,23 +1077,6 @@ document.getElementById("addTeam").addEventListener("click", function(){
   state.roster.teams.push({id:uid("t"), name:name});
   i.value=""; saveRoster();
 });
-document.getElementById("clearDemo").addEventListener("click", function(){
-  var pids=state.roster.people.map(function(p){return p.id;});
-  var sids=state.sessions.map(function(s){return s.id;});
-  state.roster={people:[],teams:[]}; state.sessions=[]; state.logs={};
-  state.config={sizes:clone(DEFAULT_SIZES), activeSessionId:null, demo:false};
-  state.me=null; saveMe(null);
-  render();
-  if(state.db){
-    pids.forEach(function(id){ state.db.doc("log/"+id).delete().catch(function(){}); });
-    sids.forEach(function(id){ state.db.doc("sessions/"+id).delete().catch(function(){}); });
-    writeDoc("meta/roster", clone(state.roster));
-    writeDoc("meta/config", clone(state.config));
-  } else saveLocal();
-  toast("Cleared. Add your people in Setup.");
-  document.querySelector("details.setup").open=true;
-});
-
 /* ---------- backfill ---------- */
 var dlg=document.getElementById("backfillDlg");
 function openBackfill(){
@@ -1186,77 +1161,186 @@ document.getElementById("bfSave").addEventListener("click", function(){
   toast("Added "+added.length+" drinks for "+(personById(pid)||{name:"them"}).name);
 });
 
-/* ---------- boot ---------- */
-function bootLocal(){
-  if(!loadLocal()){
-    var d=demoState();
-    state.roster=d.roster; state.config=d.config; state.sessions=d.sessions; state.logs=d.logs;
-  }
-  state.me = loadMe() || null;
-  if(state.me && !personById(state.me)) state.me=null;
-  render();
+/* ---------- sync status ---------- */
+function setSync(kind, msg){
+  state.sync=kind;
+  var el=document.getElementById("syncbar");
+  if(!el) return;
+  var map={
+    connecting:["warn","Connecting to the shared board..."],
+    live:["ok","Saving to the shared board - everyone with the link sees this"],
+    local:["bad","NOT SAVING TO THE SHARED BOARD. This device is on its own - nothing you log here reaches anyone else, and it can be lost. Reload the page, and check your connection."],
+    error:["bad","A save failed, so the board may be out of date. Reload before logging anything else." + (msg? " ("+msg+")" : "")]
+  };
+  var m=map[kind]||map.connecting;
+  el.className="syncbar "+m[0];
+  el.textContent=m[1];
 }
-bootLocal();
+
+/* ---------- local mirror: every device keeps its own copy ---------- */
+function mirror(){
+  try{
+    localStorage.setItem("tallyboard.mirror.v1", JSON.stringify({
+      roster:state.roster, config:state.config, sessions:state.sessions, logs:state.logs, savedAt:Date.now()
+    }));
+  }catch(e){}
+}
+
+/* ---------- backups ---------- */
+function boardBlob(){
+  var n=0;
+  Object.keys(state.logs).forEach(function(k){ n+=(state.logs[k].entries||[]).length; });
+  return { at:new Date().toISOString(), drinks:n,
+    data:JSON.stringify({roster:state.roster, config:state.config, sessions:state.sessions, logs:state.logs}).slice(0,200000) };
+}
+function writeBackup(id){
+  if(!state.db) return Promise.resolve();
+  return state.db.doc("backups/"+id).set(boardBlob()).catch(function(){});
+}
+function backupIfDue(){
+  if(!state.db) return;
+  var day=new Date().toISOString().slice(0,10);
+  if(state.lastBackupDay===day) return;
+  state.lastBackupDay=day;
+  writeBackup("daily-"+day);
+}
+function listBackups(){
+  var el=document.getElementById("backupList");
+  if(!state.db){ el.textContent="Backups live on the shared board, and this device isn't connected to it."; return; }
+  el.textContent="Loading...";
+  state.db.collection("backups").list().then(function(docs){
+    docs.sort(function(a,b){ return a.id<b.id?1:-1; });
+    if(!docs.length){ el.textContent="No backups yet."; return; }
+    el.innerHTML = docs.slice(0,20).map(function(d){
+      var v=d.data()||{};
+      return '<div class="manrow" style="grid-template-columns:1fr auto">'+
+        '<span>'+esc(d.id)+' <span class="note">'+(v.drinks!=null? v.drinks+" drinks":"")+(v.at? " - "+new Date(v.at).toLocaleString():"")+'</span></span>'+
+        '<button class="btn" data-act="restore" data-bid="'+esc(d.id)+'">Restore</button></div>';
+    }).join("");
+  }).catch(function(e){ el.textContent="Couldn't load backups: "+e.message; });
+}
+function restoreBackup(id){
+  if(!state.db) return;
+  toast("Restoring "+id+"...");
+  state.db.doc("backups/"+id).get().then(function(snap){
+    if(!snap.exists) { toast("That backup is gone."); return; }
+    var d=JSON.parse(snap.data().data);
+    return writeBackup("pre-restore-"+Date.now()).then(function(){
+      var keepS={}, keepL={};
+      (d.sessions||[]).forEach(function(x){ keepS[x.id]=1; });
+      Object.keys(d.logs||{}).forEach(function(k){ keepL[k]=1; });
+      state.sessions.forEach(function(x){ if(!keepS[x.id]) state.db.doc("sessions/"+x.id).delete().catch(function(){}); });
+      Object.keys(state.logs).forEach(function(k){ if(!keepL[k]) state.db.doc("log/"+k).delete().catch(function(){}); });
+      writeDoc("meta/roster", {people:(d.roster&&d.roster.people)||[], teams:(d.roster&&d.roster.teams)||[]});
+      writeDoc("meta/config", {sizes:(d.config&&d.config.sizes)||clone(DEFAULT_SIZES), activeSessionId:(d.config&&d.config.activeSessionId)||null});
+      (d.sessions||[]).forEach(function(x){ writeDoc("sessions/"+x.id, x); });
+      Object.keys(d.logs||{}).forEach(function(k){ writeDoc("log/"+k, {entries:d.logs[k].entries||[]}); });
+      toast("Restored "+id);
+    });
+  }).catch(function(e){ toast("Restore failed: "+e.message); });
+}
+
+document.getElementById("refreshBackups").addEventListener("click", listBackups);
+document.getElementById("backupNow").addEventListener("click", function(){
+  if(!state.db){ toast("Not connected — nothing to back up to."); return; }
+  writeBackup("manual-"+Date.now()).then(function(){ toast("Backed up"); listBackups(); });
+});
+document.getElementById("exportJson").addEventListener("click", function(){
+  var blob=new Blob([JSON.stringify({roster:state.roster, config:state.config, sessions:state.sessions, logs:state.logs}, null, 1)], {type:"application/json"});
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download="tally-board-"+new Date().toISOString().slice(0,10)+".json";
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+});
+document.getElementById("wipeBtn").addEventListener("click", function(){
+  var w=document.getElementById("wipeWord");
+  if((w.value||"").trim().toUpperCase()!=="WIPE"){ toast("Type WIPE in the box to confirm."); w.focus(); return; }
+  var pids=state.roster.people.map(function(p){ return p.id; });
+  var sids=state.sessions.map(function(x){ return x.id; });
+  writeBackup("pre-wipe-"+Date.now()).then(function(){
+    state.roster={people:[],teams:[]}; state.sessions=[]; state.logs={};
+    state.config={sizes:clone(DEFAULT_SIZES), activeSessionId:null};
+    state.me=null; saveMe(null);
+    render(); mirror();
+    if(state.db){
+      pids.forEach(function(id){ state.db.doc("log/"+id).delete().catch(function(){}); });
+      sids.forEach(function(id){ state.db.doc("sessions/"+id).delete().catch(function(){}); });
+      writeDoc("meta/roster", clone(state.roster));
+      writeDoc("meta/config", clone(state.config));
+    } else saveLocal();
+    w.value="";
+    toast("Board wiped. A backup was saved first.");
+  });
+});
+document.addEventListener("click", function(ev){
+  var el=ev.target.closest && ev.target.closest('[data-act="restore"]');
+  if(el) restoreBackup(el.getAttribute("data-bid"));
+});
+
+/* ---------- boot ---------- */
+state.me = loadMe() || null;
+render();
+setSync("connecting");
 
 (async function(){
   var db=null;
   try{ db = await (window.__dbReady || new Promise(function(res){ var i=setInterval(function(){ if(window.__dbReady){ clearInterval(i); window.__dbReady.then(res); } },40); setTimeout(function(){ clearInterval(i); res(null); },10000); })); }catch(e){ db=null; }
-  if(!db){ render(); return; }
+  if(!db){
+    // No shared board reachable. Work from this browser alone, and say so in red.
+    loadLocal();
+    if(state.me && !personById(state.me)) state.me=null;
+    setSync("local");
+    render();
+    return;
+  }
   state.db=db;
   var remote={roster:null, config:null, sessions:null, logs:null};
-  var got={roster:false, config:false, sessions:false, logs:false};
-  var seeded=false;
-  function onErr(){ /* keep rendering with whatever we already have */ }
-  function ready(){ return got.roster && got.config && got.sessions && got.logs; }
-  function empty(){
-    return !remote.roster && (!remote.sessions || !remote.sessions.length) &&
-           (!remote.logs || !Object.keys(remote.logs).length);
-  }
+  var server={roster:false, config:false, sessions:false, logs:false};
+  function onErr(e){ setSync("error", (e&&e.message)||""); }
+  function serverReady(){ return server.roster && server.config && server.sessions && server.logs; }
+
+  // Cache-only snapshots are ignored outright. On a cold start an empty cache is
+  // indistinguishable from an empty database, and acting on that is what let one
+  // device write its own idea of the board over everyone else's.
   function apply(){
-    if(!ready()) return;
-    if(empty()){
-      // Nothing stored yet: push what this view is showing so the board isn't blank for anyone.
-      if(!seeded){
-        seeded=true;
-        writeDoc("meta/roster", clone(state.roster));
-        writeDoc("meta/config", clone(state.config));
-        state.sessions.forEach(function(s){ writeDoc("sessions/"+s.id, clone(s)); });
-        Object.keys(state.logs).forEach(function(pid){ writeDoc("log/"+pid, {entries:state.logs[pid].entries}); });
-      }
-      render();
-      return;
-    }
-    if(remote.roster) state.roster={people:remote.roster.people||[], teams:remote.roster.teams||[]};
-    if(remote.config) state.config={sizes:remote.config.sizes||clone(DEFAULT_SIZES), activeSessionId:remote.config.activeSessionId||null, demo:!!remote.config.demo};
-    if(remote.sessions) state.sessions=remote.sessions;
-    if(remote.logs) state.logs=remote.logs;
+    if(!serverReady()) return;
+    setSync("live");
+    state.roster = remote.roster ? {people:remote.roster.people||[], teams:remote.roster.teams||[]} : {people:[],teams:[]};
+    state.config = remote.config ? {sizes:remote.config.sizes||clone(DEFAULT_SIZES), activeSessionId:remote.config.activeSessionId||null} : {sizes:clone(DEFAULT_SIZES), activeSessionId:null};
+    state.sessions = remote.sessions || [];
+    state.logs = remote.logs || {};
     if(state.me && !personById(state.me)) state.me=null;
+    mirror();
     render();
   }
 
-  db.doc("meta/roster").onSnapshot(function(snap){
-    got.roster=true; remote.roster = snap.exists ? snap.data() : null; apply();
+  db.doc("meta/roster").onSnapshot(function(s){
+    if(s.metadata && s.metadata.fromCache) return;
+    server.roster=true; remote.roster = s.exists ? s.data() : null; apply();
   }, onErr);
-  db.doc("meta/config").onSnapshot(function(snap){
-    got.config=true; remote.config = snap.exists ? snap.data() : null; apply();
+  db.doc("meta/config").onSnapshot(function(s){
+    if(s.metadata && s.metadata.fromCache) return;
+    server.config=true; remote.config = s.exists ? s.data() : null; apply();
   }, onErr);
-  db.collection("sessions").onSnapshot(function(snap){
-    got.sessions=true;
-    remote.sessions = snap.docs.map(function(d){ var v=d.data()||{}; return {id:d.id, name:v.name||"Session", startedAt:v.startedAt||0, createdAt:v.createdAt||0}; })
+  db.collection("sessions").onSnapshot(function(s){
+    if(s.metadata && s.metadata.fromCache) return;
+    server.sessions=true;
+    remote.sessions = s.docs.map(function(d){ var v=d.data()||{}; return {id:d.id, name:v.name||"Session", startedAt:v.startedAt||0, createdAt:v.createdAt||0}; })
       .sort(function(a,b){ return b.startedAt-a.startedAt; });
     apply();
   }, onErr);
-  db.collection("log").onSnapshot(function(snap){
-    got.logs=true;
+  db.collection("log").onSnapshot(function(s){
+    if(s.metadata && s.metadata.fromCache) return;
+    server.logs=true;
     var logs={};
-    snap.docs.forEach(function(d){ logs[d.id]={entries:(d.data()||{}).entries||[]}; });
-    remote.logs=logs;
-    apply();
+    s.docs.forEach(function(d){ logs[d.id]={entries:(d.data()||{}).entries||[]}; });
+    remote.logs=logs; apply();
   }, onErr);
 
+  setTimeout(function(){ if(!serverReady()) setSync("error","no answer from the database"); }, 15000);
   state.ready=true;
 })();
-
 })();
 </script>
 
@@ -1269,7 +1353,7 @@ setTimeout(function(){ if(window.__dbResolve) { window.__dbResolve(null); window
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getFirestore, doc, collection, setDoc, deleteDoc, onSnapshot }
+import { getFirestore, doc, collection, setDoc, deleteDoc, onSnapshot, getDoc, getDocs }
   from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
 
 /* ---- PASTE YOUR FIREBASE WEB CONFIG HERE ---- */
@@ -1295,16 +1379,18 @@ function adapt(fs){
       return {
         set:(d)=>setDoc(ref, d),
         delete:()=>deleteDoc(ref),
+        get:()=>getDoc(ref).then((s)=>({ id:s.id, exists:s.exists(), data:()=>s.data() })),
         onSnapshot:(next, err)=>onSnapshot(ref,
-          (s)=>next({ id:s.id, exists:s.exists(), data:()=>s.data() }),
+          (s)=>next({ id:s.id, exists:s.exists(), data:()=>s.data(), metadata:{fromCache:s.metadata.fromCache} }),
           (e)=>err && err({code:e.code||"unavailable", message:e.message}))
       };
     },
     collection(path){
       const ref = collection(fs, P(path));
       return {
+        list:()=>getDocs(ref).then((s)=>s.docs.map((d)=>({ id:d.id, data:()=>d.data() }))),
         onSnapshot:(next, err)=>onSnapshot(ref,
-          (s)=>next({ docs:s.docs.map((d)=>({ id:d.id, exists:true, data:()=>d.data() })) }),
+          (s)=>next({ docs:s.docs.map((d)=>({ id:d.id, exists:true, data:()=>d.data() })), metadata:{fromCache:s.metadata.fromCache} }),
           (e)=>err && err({code:e.code||"unavailable", message:e.message}))
       };
     }
