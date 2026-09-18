@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Tally Board Recovery</title>
+<style>
+:root{--bg:#111310;--panel:#1A1D18;--line:#2E332A;--ink:#ECEEE6;--ink2:#9BA292;--good:#63C493;--warn:#E0B05F;--bad:#E8779A}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;padding:24px 16px 60px}
+.wrap{max-width:640px;margin:0 auto}
+h1{font-size:20px;margin:0 0 4px}
+p.sub{color:var(--ink2);margin:0 0 20px;font-size:13.5px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+.k{font-size:11px;text-transform:uppercase;letter-spacing:.09em;color:var(--ink2);font-weight:700;margin-bottom:6px}
+.big{font-size:22px;font-weight:700}
+ul{margin:6px 0 0;padding-left:18px}li{margin:2px 0}
+button{font:inherit;font-weight:600;color:var(--ink);background:#232720;border:1px solid #3E453A;border-radius:8px;padding:10px 14px;cursor:pointer;margin:6px 6px 0 0}
+button.go{background:var(--good);color:#0c140f;border-color:var(--good)}
+button:disabled{opacity:.5;cursor:default}
+.ok{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+code{background:#232720;padding:1px 5px;border-radius:4px;font-size:12.5px}
+#log{white-space:pre-wrap;font:12.5px ui-monospace,monospace;color:var(--ink2);margin-top:10px}
+label{display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:13.5px;color:var(--ink2)}
+</style></head><body><div class="wrap">
+<h1>Tally Board recovery</h1>
+<p class="sub">Checks this browser for a board that never made it to the shared database, and puts it back.</p>
+<div id="local" class="card">Checking this device…</div>
+<div id="remote" class="card">Checking the shared board…</div>
+<div id="actions"></div>
+<div id="log"></div>
+</div>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
+import { getFirestore, doc, collection, setDoc, getDoc, getDocs }
+  from "https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js";
+const cfg={apiKey:"AIzaSyAC2GKgduRcpqxxHha9KV28U7jwJoZD9HE",authDomain:"tally-board-e2d04.firebaseapp.com",projectId:"tally-board-e2d04",storageBucket:"tally-board-e2d04.firebasestorage.app",messagingSenderId:"370140151269",appId:"1:370140151269:web:090a8c374de8c5e003030c"};
+const fs=getFirestore(initializeApp(cfg));
+const P=p=>"boards/main/"+p;
+const $=id=>document.getElementById(id);
+const say=m=>{$("log").textContent+=m+"\n"};
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+
+function readLocal(){
+  const out=[];
+  for(const key of ["tallyboard.v1","tallyboard.mirror.v1"]){
+    let raw=null; try{ raw=localStorage.getItem(key); }catch(e){}
+    if(!raw) continue;
+    try{
+      const d=JSON.parse(raw);
+      const people=(d.roster&&d.roster.people)||[];
+      const teams=(d.roster&&d.roster.teams)||[];
+      const logs=d.logs||{};
+      let entries=0,last=0;
+      for(const k in logs) (logs[k].entries||[]).forEach(e=>{entries++; if(e.ts>last) last=e.ts;});
+      out.push({key,data:d,people,teams,sessions:d.sessions||[],entries,last});
+    }catch(e){ say("Could not parse "+key+": "+e.message); }
+  }
+  return out;
+}
+const found=readLocal();
+const best=found.filter(f=>f.entries>0||f.people.length>0).sort((a,b)=>b.entries-a.entries)[0]||null;
+
+$("local").innerHTML = !best
+  ? '<div class="k">This device</div><div class="big bad">Nothing saved here</div><p class="sub" style="margin:6px 0 0">No board in this browser\'s storage. Try the other phones or laptops that were used, and check the same browser app that was used that night.</p>'
+  : '<div class="k">Found on this device</div>'
+    +'<div class="big ok">'+best.entries+' drinks</div>'
+    +'<ul>'
+    +'<li>People: '+(best.people.map(p=>esc(p.name)).join(", ")||"none")+'</li>'
+    +'<li>Teams: '+(best.teams.map(t=>esc(t.name)).join(", ")||"none")+'</li>'
+    +'<li>Sessions: '+(best.sessions.map(s=>esc(s.name)).join(", ")||"none")+'</li>'
+    +'<li>Last drink logged: '+(best.last?new Date(best.last).toLocaleString():"n/a")+'</li>'
+    +'<li>Storage key: <code>'+esc(best.key)+'</code></li></ul>';
+
+let remoteEmpty=null;
+try{
+  const r=await getDoc(doc(fs,P("meta/roster")));
+  const logs=await getDocs(collection(fs,P("log")));
+  const sess=await getDocs(collection(fs,P("sessions")));
+  let rEntries=0; logs.docs.forEach(d=>rEntries+=((d.data().entries)||[]).length);
+  const rPeople=r.exists()?(r.data().people||[]):[];
+  remoteEmpty = rPeople.length===0 && rEntries===0 && sess.docs.length===0;
+  $("remote").innerHTML='<div class="k">Shared board right now</div><div class="big '+(remoteEmpty?"warn":"ok")+'">'
+    +(remoteEmpty?"Empty":rEntries+" drinks")+'</div><ul><li>People: '+(rPeople.map(p=>esc(p.name)).join(", ")||"none")
+    +'</li><li>Sessions: '+sess.docs.length+'</li></ul>';
+}catch(e){
+  $("remote").innerHTML='<div class="k">Shared board</div><div class="big bad">Could not reach it</div><p class="sub">'+esc(e.message)+'</p>';
+}
+
+if(best){
+  const box=document.createElement("div");
+  box.className="card";
+  box.innerHTML='<div class="k">Actions</div>'
+    +'<button id="dl">Download a JSON copy first</button>'
+    +'<button id="push" class="go">Push this device\'s board to everyone</button>'
+    + (remoteEmpty===false ? '<label><input type="checkbox" id="ovr"> The shared board already has data. Tick to overwrite it with this device\'s board.</label>' : '');
+  $("actions").appendChild(box);
+
+  $("dl").onclick=()=>{
+    const blob=new Blob([JSON.stringify(best.data,null,1)],{type:"application/json"});
+    const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="tally-board-backup-"+new Date().toISOString().slice(0,10)+".json";
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  };
+
+  $("push").onclick=async()=>{
+    const ovr=$("ovr");
+    if(remoteEmpty===false && (!ovr||!ovr.checked)){ say("Tick the overwrite box first — the shared board is not empty."); return; }
+    $("push").disabled=true; say("Writing…");
+    const d=best.data;
+    try{
+      await setDoc(doc(fs,P("backups/before-recovery-"+Date.now())),{data:JSON.stringify(d).slice(0,200000),at:new Date().toISOString()});
+      await setDoc(doc(fs,P("meta/roster")),{people:d.roster.people||[],teams:d.roster.teams||[]});
+      await setDoc(doc(fs,P("meta/config")),{sizes:(d.config&&d.config.sizes)||{},activeSessionId:(d.config&&d.config.activeSessionId)||null,demo:false});
+      for(const s of (d.sessions||[])) await setDoc(doc(fs,P("sessions/"+s.id)),s);
+      for(const pid in (d.logs||{})) await setDoc(doc(fs,P("log/"+pid)),{entries:d.logs[pid].entries||[]});
+      say("Done. "+best.entries+" drinks restored to the shared board.");
+      say("Open the board again — everyone should see it now.");
+      $("push").textContent="Restored";
+    }catch(e){ say("Failed: "+e.message); $("push").disabled=false; }
+  };
+}
+</script></body></html>
