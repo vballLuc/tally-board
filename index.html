@@ -1200,7 +1200,7 @@ bootLocal();
 
 (async function(){
   var db=null;
-  try{ db = await (window.__dbReady || Promise.resolve(null)); }catch(e){ db=null; }
+  try{ db = await (window.__dbReady || new Promise(function(res){ var i=setInterval(function(){ if(window.__dbReady){ clearInterval(i); window.__dbReady.then(res); } },40); setTimeout(function(){ clearInterval(i); res(null); },10000); })); }catch(e){ db=null; }
   if(!db){ render(); return; }
   state.db=db;
   var remote={roster:null, config:null, sessions:null, logs:null};
